@@ -1,0 +1,14 @@
+# Compiled source binary
+*.pyc
+
+# Backup files
+*.old.py
+
+# Data directory
+data/
+saves/
+*.tar.gz
+
+# Debug information
+debug/
+*.log
