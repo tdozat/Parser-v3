@@ -86,8 +86,8 @@ def RNN(layer, recur_size, conv_width=0, recur_func=nonlin.relu, conv_keep_prob=
         last_hidden *= mask
       current_hidden = current_partial_input + tf.matmul(last_hidden, weights)
       current_hidden = recur_func(current_hidden)
-      if recur_keep_prob < 1:
-        zone_mask = nn.binary_mask([batch_size, recur_size], recur_keep_prob)
+      if recur_include_prob < 1:
+        zone_mask = nn.binary_mask([batch_size, recur_size], recur_include_prob)
         current_hidden = zone_mask*current_hidden + (1-zone_mask)*last_hidden
       current_hidden = tf.where(i < seq_lengths, current_hidden, null_hidden)
       current_hidden_sequence = last_hidden_sequence.write(i, tf.where(i < seq_lengths, current_hidden, last_hidden))
@@ -200,7 +200,7 @@ def UniRNN(layer, recur_size, seq_lengths, recur_cell=LSTM, **kwargs):
   
   locations = tf.expand_dims(tf.one_hot(seq_lengths-1, tf.shape(layer)[1]), -1)
   with tf.variable_scope('RNN'):
-    hidden, cell = recur_cell(layer, recur_size, **kwargs)
+    hidden, cell = recur_cell(layer, recur_size, seq_lengths, **kwargs)
   layer = hidden
   if recur_cell == RNN:
     final_states = tf.squeeze(tf.matmul(hidden, locations, transpose_a=True), -1)
@@ -216,10 +216,10 @@ def BiRNN(layer, recur_size, seq_lengths, recur_cell=LSTM, bilin=False, **kwargs
   
   locations = tf.expand_dims(tf.one_hot(seq_lengths-1, tf.shape(layer)[1]), -1)
   with tf.variable_scope('RNN_FW'):
-    fw_hidden, fw_cell = recur_cell(layer, recur_size, **kwargs)
+    fw_hidden, fw_cell = recur_cell(layer, recur_size, seq_lengths, **kwargs)
   rev_layer = tf.reverse_sequence(layer, seq_lengths, batch_axis=0, seq_axis=1)
   with tf.variable_scope('RNN_BW'):
-    bw_hidden, bw_cell = recur_cell(rev_layer, recur_size, **kwargs)
+    bw_hidden, bw_cell = recur_cell(rev_layer, recur_size, seq_lengths, **kwargs)
   rev_bw_hidden = tf.reverse_sequence(bw_hidden, seq_lengths, batch_axis=0, seq_axis=1)
   rev_bw_cell = tf.reverse_sequence(bw_cell, seq_lengths, batch_axis=0, seq_axis=1)
   if bilin:

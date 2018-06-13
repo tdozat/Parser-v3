@@ -103,13 +103,14 @@ class Multivocab(BaseVocab, list):
     return status
   
   #=============================================================
-  def get_input_tensor(self, nonzero_init=False, reuse=True):
+  def get_input_tensor(self, reuse=True):
     """"""
     
     embed_keep_prob = 1 if reuse else self.embed_keep_prob
     #if self.combine_func != embeddings.concat:
     #  assert len(set([vocab.embed_size for vocab in self])) == 1, "Unless Multivocab.combine_func is set to 'concat', all vocabs must have the same 'embed_size'"
     
+    nonzero_init = True
     with tf.variable_scope(self.field):
       input_tensors = []
       if self._pretrained_vocabs:

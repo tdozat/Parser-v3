@@ -93,39 +93,48 @@ class Network(object):
     return
   
   #=============================================================
-  def build_embed(self, reuse=True):
+  def build_graph(self, reuse=True):
     """"""
     
+    conv_keep_prob = 1. if reuse else self.conv_keep_prob
+    recur_keep_prob = 1. if reuse else self.recur_keep_prob
     with tf.variable_scope('Embeddings'):
-      input_tensors = [input_vocab.get_input_tensor(reuse=reuse) for input_vocab in self.input_vocabs]
+      if self.sum_pos:
+        #pos_tensors = [input_vocab.get_input_tensor(embed_keep_prob=1, reuse=reuse) for input_vocab in self.input_vocabs if 'POS' in input_vocab.__class__.__name__]
+        #non_pos_tensors = [input_vocab.get_input_tensor(reuse=reuse) for input_vocab in self.input_vocabs if 'POS' not in input_vocab.__class__.__name__]
+        #if pos_tensors:
+        #  pos_tensors = tf.add_n(pos_tensors)
+        #  pos_tensors = [input_vocab.drop_func(pos_tensors, input_vocab.embed_keep_prob if not reuse else 1)]
+        #input_tensors = non_pos_tensors + pos_tensors
+        pos_vocabs = list(filter(lambda x: 'POS' in x.__class__.__name__, self.input_vocabs))
+        pos_tensors = [input_vocab.get_input_tensor(embed_keep_prob=1, reuse=reuse) for input_vocab in pos_vocabs]
+        non_pos_tensors = [input_vocab.get_input_tensor(reuse=reuse) for input_vocab in self.input_vocabs if 'POS' not in input_vocab.__class__.__name__]
+        if pos_tensors:
+          pos_tensors = tf.add_n(pos_tensors)
+          pos_tensors = [pos_vocabs[0].drop_func(pos_tensors, pos_vocabs[0].embed_keep_prob if not reuse else 1)]
+        input_tensors = non_pos_tensors + pos_tensors
+      else:
+        input_tensors = [input_vocab.get_input_tensor(reuse=reuse) for input_vocab in self.input_vocabs]
       layer = tf.concat(input_tensors, 2)
-    batch_size, bucket_size, input_size = nn.get_sizes(layer)
-    n_nonzero = tf.to_float(tf.count_nonzero(layer, axis=-1, keep_dims=True))
-    layer *= input_size / (n_nonzero + tf.constant(1e-12))
+      batch_size, bucket_size, input_size = nn.get_sizes(layer)
+      n_nonzero = tf.to_float(tf.count_nonzero(layer, axis=-1, keep_dims=True))
+      layer *= input_size / (n_nonzero + tf.constant(1e-12))
     
+    print('embed shape: {}'.format(layer.get_shape().as_list()))
     token_weights = nn.greater(self.id_vocab.placeholder, 0)
     tokens_per_sequence = tf.reduce_sum(token_weights, axis=1)
     n_tokens = tf.reduce_sum(tokens_per_sequence)
+    seq_lengths = tokens_per_sequence + 1
     n_sequences = tf.count_nonzero(tokens_per_sequence)
     
     root_weights = token_weights + (1-nn.greater(tf.range(bucket_size), 0))
     token_weights3D = tf.expand_dims(token_weights, axis=-1) * tf.expand_dims(root_weights, axis=-2)
+    #token_weights3D = tf.ones(tf.stack([batch_size, bucket_size, bucket_size]), dtype=tf.int32)
     tokens = {'n_tokens': n_tokens,
               'tokens_per_sequence': tokens_per_sequence,
               'token_weights': token_weights,
               'token_weights3D': token_weights3D,
               'n_sequences': n_sequences}
-    
-    return layer, tokens
-  
-  #=============================================================
-  def build_RNN(self, reuse=True):
-    """"""
-    
-    layer, tokens = self.build_embed(reuse=reuse)
-    conv_keep_prob = 1. if reuse else self.conv_keep_prob
-    recur_keep_prob = 1. if reuse else self.recur_keep_prob
-    seq_lengths = tokens['tokens_per_sequence'] + 1
     
     for i in xrange(self.n_layers):
       conv_width = self.first_layer_conv_width if not i else self.conv_width
@@ -142,59 +151,8 @@ class Network(object):
                                           highway=self.highway,
                                           highway_func=self.highway_func,
                                           bilin=self.bilin)
-    return layer, tokens
-  
-  #=============================================================
-  def build_LMRNN(self, reuse=True):
-    """"""
+        print('recur shape: {}'.format(layer.get_shape().as_list()))
     
-    # NOTE <ROOT> = <S>, <PAD> = </S>
-    layer, tokens = self.build_embed(reuse=reuse)
-    conv_keep_prob = 1. if reuse else self.conv_keep_prob
-    recur_keep_prob = 1. if reuse else self.recur_keep_prob
-    seq_lengths = tokens['tokens_per_sequence']
-    rev_layer = tf.reverse_sequence(layer, seq_lengths, seq_axis=2)
-    
-    for i in xrange(self.n_layers):
-      conv_width = self.first_layer_conv_width if not i else self.conv_width
-      with tf.variable_scope('RNN-{}'.format(i)):
-        layer, _ = recurrent.directed_RNN(layer, self.recur_size, seq_lengths,
-                                          bidirectional=False,
-                                          recur_cell=self.recur_cell,
-                                          conv_width=conv_width,
-                                          recur_func=self.recur_func,
-                                          conv_keep_prob=conv_keep_prob,
-                                          recur_keep_prob=recur_keep_prob,
-                                          drop_type=self.drop_type,
-                                          cifg=self.cifg,
-                                          highway=self.highway,
-                                          highway_func=self.highway_func,
-                                          bilin=self.bilin)
-        rev_layer, _ = recurrent.directed_RNN(rev_layer, self.recur_size, seq_lengths,
-                                          bidirectional=False,
-                                          recur_cell=self.recur_cell,
-                                          conv_width=conv_width,
-                                          recur_func=self.recur_func,
-                                          conv_keep_prob=conv_keep_prob,
-                                          recur_keep_prob=recur_keep_prob,
-                                          drop_type=self.drop_type,
-                                          cifg=self.cifg,
-                                          highway=self.highway,
-                                          highway_func=self.highway_func,
-                                          bilin=self.bilin)
-    rev_layer = tf.reverse_sequence(rev_layer, seq_lengths, seq_axis=2)[:,:,2:]
-    layer = 
-    return layer, tokens
-  
-  #=============================================================
-  def build_graph(self, reuse=True):
-    """"""
-    
-    layer, tokens = self.build_RNN(reuse=reuse)
-    
-    token_weights = tokens['token_weights']
-    token_weights3D = tokens['token_weights3D']
-    layer = self.build_RNN(reuse=reuse)
     input_vocabs = {vocab.field: vocab for vocab in self.input_vocabs}
     output_vocabs = {vocab.field: vocab for vocab in self.output_vocabs}
     outputs = {}
@@ -310,10 +268,9 @@ class Network(object):
     update_step = tf.assign_add(self.global_step, 1)
     adam = AdamOptimizer(config=self._config)
     #adam = LazyAdamOptimizer(.002, .9, .9)
-    adam_op = adam.minimize(train_outputs.loss + regularization_loss) # returns the current step
-    adam_train_tensors = [adam_op, train_outputs.accuracies]
+    adam_op = adam.minimize(train_outputs.loss) # returns the current step
+    adam_train_tensors = amsgrad_train_tensors = [adam_op, train_outputs.accuracies]
     amsgrad = AMSGradOptimizer.from_optimizer(adam)
-    #amsgrad = AMSGradOptimizer(config=self._config)
     amsgrad_op = amsgrad.minimize(train_outputs.loss + regularization_loss) # returns the current step
     amsgrad_train_tensors = [amsgrad_op, train_outputs.accuracies]
     dev_tensors = dev_outputs.accuracies
@@ -364,6 +321,8 @@ class Network(object):
           best_accuracy = 0
           current_accuracy = 0
           steps_since_best = 0
+          #with open('debug.log', 'w'):
+          #  pass
           while current_step < self.max_steps and steps_since_best < self.max_steps_without_improvement:
             if steps_since_best > .1*self.max_steps_without_improvement:
               train_tensors = amsgrad_train_tensors
@@ -371,6 +330,8 @@ class Network(object):
             for batch in trainset.shuffled_batch_iterator():
               train_outputs.restart_timer()
               feed_dict = trainset.set_placeholders(batch)
+              #with open('debug.log', 'a') as f:
+              #  f.write('{}'.format(feed_dict))
               _, train_scores = sess.run(train_tensors, feed_dict=feed_dict)
               train_outputs.update_history(train_scores)
               current_step += 1
@@ -521,10 +482,13 @@ class Network(object):
   @property
   def highway_func(self):
     highway_func = self._config.getstr(self, 'highway_func')
-    if hasattr(nonlin, highway_func):
-      return getattr(nonlin, highway_func)
+    if highway_func is not None:
+      if hasattr(nonlin, highway_func):
+        return getattr(nonlin, highway_func)
+      else:
+        raise AttributeError("module '{}' has no attribute '{}'".format(nonlin.__name__, highway_func))
     else:
-      raise AttributeError("module '{}' has no attribute '{}'".format(nonlin.__name__, highway_func))
+      return None
   @property
   def recur_cell(self):
     recur_cell = self._config.getstr(self, 'recur_cell')
@@ -533,8 +497,11 @@ class Network(object):
     else:
       raise AttributeError("module '{}' has no attribute '{}'".format(recurrent.__name__, recur_cell))
   @property
-  def recur_include_prob(self):
-    return self._config.getfloat(self, 'recur_include_prob')
+  def sum_pos(self):
+    return self._config.getboolean(self, 'sum_pos')
+  @property
+  def drop_type(self):
+    return self._config.getstr(self, 'drop_type')
   @property
   def cifg(self):
     return self._config.getboolean(self, 'cifg')

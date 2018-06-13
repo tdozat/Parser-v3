@@ -31,7 +31,7 @@ def hidden(layer, hidden_size, hidden_func=nonlin.relu, hidden_keep_prob=1.):
   
   layer_shape = nn.get_sizes(layer)
   input_size = layer_shape.pop()
-  weights = tf.get_variable('Weights', shape=[input_size, hidden_size], initializer=tf.orthogonal_initializer, regularizer=nn.orthogonal_loss)
+  weights = tf.get_variable('Weights', shape=[input_size, hidden_size], initializer=tf.orthogonal_initializer)
   biases = tf.get_variable('Biases', shape=[hidden_size], initializer=tf.zeros_initializer)
   if hidden_keep_prob < 1.:
     if len(layer_shape) > 1:
@@ -54,7 +54,7 @@ def hiddens(layer, hidden_sizes, hidden_func=nonlin.relu, hidden_keep_prob=1.):
   input_size = layer_shape.pop()
   weights = []
   for i, hidden_size in enumerate(hidden_sizes):
-    weights.append(tf.get_variable('Weights-%d' % i, shape=[input_size, hidden_size], initializer=tf.orthogonal_initializer, regularizer=nn.orthogonal_loss))
+    weights.append(tf.get_variable('Weights-%d' % i, shape=[input_size, hidden_size], initializer=tf.orthogonal_initializer))
   weights = tf.concat(weights, axis=1)
   hidden_size = sum(hidden_sizes)
   biases = tf.get_variable('Biases', shape=[hidden_size], initializer=tf.zeros_initializer)
@@ -78,7 +78,7 @@ def linear_classifier(layer, output_size, hidden_keep_prob=1.):
   
   layer_shape = nn.get_sizes(layer)
   input_size = layer_shape.pop()
-  weights = tf.get_variable('Weights', shape=[input_size, output_size], initializer=tf.zeros_initializer, regularizer=tf.nn.l2_loss)
+  weights = tf.get_variable('Weights', shape=[input_size, output_size], initializer=tf.zeros_initializer)
   biases = tf.get_variable('Biases', shape=[output_size], initializer=tf.zeros_initializer)
   if hidden_keep_prob < 1.:
     if len(layer_shape) > 1:
@@ -102,7 +102,7 @@ def linear_attention(layer, hidden_keep_prob=1.):
   
   layer_shape = nn.get_sizes(layer)
   input_size = layer_shape.pop()
-  weights = tf.get_variable('Weights', shape=[input_size, 1], initializer=tf.zeros_initializer, regularizer=tf.nn.l2_loss)
+  weights = tf.get_variable('Weights', shape=[input_size, 1], initializer=tf.zeros_initializer)
   if hidden_keep_prob < 1.:
     if len(layer_shape) > 1:
       noise_shape = tf.stack(layer_shape[:-1] + [1, input_size])
@@ -168,7 +168,7 @@ def bilinear_classifier(layer1, layer2, output_size, hidden_keep_prob=1., add_li
   # (n x mo x d) * (n x m x d) -> (n x mo x m)
   layer = tf.matmul(layer, layer2, transpose_b=True)
   # (n x mo x m) -> (n x m x o x m)
-  layer = nn.reshape(layer, layer_shape + [output_size, bucket_size])
+  layer = nn.reshape(layer, layer_shape + [output_size, bucket_size]) + biases
   return layer
 
 #===============================================================

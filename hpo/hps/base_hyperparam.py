@@ -23,7 +23,10 @@ import six
 import numpy as np
 import numpy.linalg as la
 import scipy.stats as sps
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
+  
 def pretty_plot(ax):
   ax.grid(linestyle='--', axis='y')
  

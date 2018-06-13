@@ -45,18 +45,19 @@ class ParserNetwork(BaseNetwork):
     
     with tf.variable_scope('Embeddings'):
       if self.sum_pos:
-        pos_tensors = [input_vocab.get_input_tensor(embed_keep_prob=1, reuse=reuse) for input_vocab in self.input_vocabs if 'POS' in input_vocab.__class__.__name__]
+        pos_vocabs = list(filter(lambda x: 'POS' in x.__class__.__name__, self.input_vocabs))
+        pos_tensors = [input_vocab.get_input_tensor(embed_keep_prob=1, reuse=reuse) for input_vocab in pos_vocabs]
         non_pos_tensors = [input_vocab.get_input_tensor(reuse=reuse) for input_vocab in self.input_vocabs if 'POS' not in input_vocab.__class__.__name__]
         if pos_tensors:
           pos_tensors = tf.add_n(pos_tensors)
-          pos_tensors = [input_vocab.drop_func(pos_tensors, input_vocab.embed_keep_prob if not reuse else 1)]
+          pos_tensors = [pos_vocabs[0].drop_func(pos_tensors, pos_vocabs[0].embed_keep_prob if not reuse else 1)]
         input_tensors = non_pos_tensors + pos_tensors
       else:
         input_tensors = [input_vocab.get_input_tensor(reuse=reuse) for input_vocab in self.input_vocabs]
       layer = tf.concat(input_tensors, 2)
-      n_nonzero = tf.to_float(tf.count_nonzero(layer, axis=-1, keep_dims=True))
-      layer *= input_size / (n_nonzero + tf.constant(1e-12))
+    n_nonzero = tf.to_float(tf.count_nonzero(layer, axis=-1, keep_dims=True))
     batch_size, bucket_size, input_size = nn.get_sizes(layer)
+    layer *= input_size / (n_nonzero + tf.constant(1e-12))
     
     token_weights = nn.greater(self.id_vocab.placeholder, 0)
     tokens_per_sequence = tf.reduce_sum(token_weights, axis=1)
@@ -70,6 +71,7 @@ class ParserNetwork(BaseNetwork):
     
     conv_keep_prob = 1. if reuse else self.conv_keep_prob
     recur_keep_prob = 1. if reuse else self.recur_keep_prob
+    recur_include_prob = 1. if reuse else self.recur_include_prob
     
     for i in six.moves.range(self.n_layers):
       conv_width = self.first_layer_conv_width if not i else self.conv_width
@@ -80,8 +82,8 @@ class ParserNetwork(BaseNetwork):
                                           conv_width=conv_width,
                                           recur_func=self.recur_func,
                                           conv_keep_prob=conv_keep_prob,
+                                          recur_include_prob=recur_include_prob,
                                           recur_keep_prob=recur_keep_prob,
-                                          drop_type=self.drop_type,
                                           cifg=self.cifg,
                                           highway=self.highway,
                                           highway_func=self.highway_func,

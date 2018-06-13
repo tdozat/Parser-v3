@@ -76,7 +76,7 @@ class TokenVocab(CountVocab):
     #-----------------------------------------------------------
     # Compute probabilities/cross entropy
     # (n x m x c) -> (n x m x c)
-    probabilities = tf.nn.softmax(logits, axis=-1)
+    probabilities = tf.nn.softmax(logits)
     # (n x m), (n x m x c), (n x m) -> ()
     loss = tf.losses.sparse_softmax_cross_entropy(targets, logits, weights=token_weights)
     
@@ -170,7 +170,7 @@ class TokenVocab(CountVocab):
         # (n x m x m) -> (n x m x m x 1)
         head_probabilities = tf.expand_dims(tf.stop_gradient(outputs['probabilities']), axis=-1)
         # (n x m x m x c) -> (n x m x m x c)
-        label_probabilities = tf.nn.softmax(transposed_logits, axis=-1)
+        label_probabilities = tf.nn.softmax(transposed_logits)
         # (n x m), (n x m x c), (n x m) -> ()
         label_loss = tf.losses.sparse_softmax_cross_entropy(label_targets, oracle_logits, weights=token_weights)
         
@@ -257,7 +257,7 @@ class TokenVocab(CountVocab):
         #-------------------------------------------------------
         # Compute probabilities/cross entropy
         # (n x m x cm) -> (n x m x cm)
-        probabilities = tf.nn.softmax(reshaped_logits, axis=-1)
+        probabilities = tf.nn.softmax(reshaped_logits)
         # (n x m x cm) -> (n x m x c x m)
         probabilities = tf.reshape(probabilities, tf.stack([-1, bucket_size, len(self), bucket_size]))
         # (n x m x c x m) -> (n x m x m x c)
@@ -511,7 +511,7 @@ class GraphTokenVocab(TokenVocab):
     # (n x m x m) -> (n x m x m x 1)
     head_probabilities = tf.expand_dims(tf.stop_gradient(outputs['probabilities']), axis=-1)
     # (n x m x m x c) -> (n x m x m x c)
-    label_probabilities = tf.nn.softmax(transposed_logits, axis=-1) * tf.to_float(tf.expand_dims(token_weights, axis=-1))
+    label_probabilities = tf.nn.softmax(transposed_logits) * tf.to_float(tf.expand_dims(token_weights, axis=-1))
     # (n x m x m), (n x m x m x c), (n x m x m) -> ()
     label_loss = tf.losses.sparse_softmax_cross_entropy(label_targets, transposed_logits, weights=token_weights*unlabeled_targets)
     
@@ -597,7 +597,7 @@ class GraphTokenVocab(TokenVocab):
         #-----------------------------------------------------------
         # Compute probabilities/cross entropy
         # (n x m x m x c) -> (n x m x m x c)
-        probabilities = tf.nn.softmax(transposed_logits, axis=-1) * tf.to_float(tf.expand_dims(token_weights, axis=-1))
+        probabilities = tf.nn.softmax(transposed_logits) * tf.to_float(tf.expand_dims(token_weights, axis=-1))
         # (n x m x m), (n x m x m x c), (n x m x m) -> ()
         loss = tf.losses.sparse_softmax_cross_entropy(targets, transposed_logits, weights=token_weights)
         

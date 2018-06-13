@@ -102,7 +102,7 @@ def token_embedding_lookup(n_entries, embed_size, ids, nonzero_init=False, reuse
   shape = [n_entries, embed_size]
   initializer = tf.random_normal_initializer if nonzero_init else tf.zeros_initializer
   with tf.device('/cpu:0'):
-    params = tf.get_variable('Embeddings', shape=shape, initializer=initializer, regularizer=tf.nn.l2_loss)
+    params = tf.get_variable('Embeddings', shape=shape, initializer=initializer)
   layers = tf.nn.embedding_lookup(params, ids)
   return layers
 
@@ -111,12 +111,12 @@ def pretrained_embedding_lookup(params, linear_size, ids, name='', reuse=True):
   """"""
   
   layer = tf.nn.embedding_lookup(params, ids)
-  #batch_size, bucket_size, input_size = nn.get_sizes(layer)
-  #shape = [input_size, linear_size]
-  #weights = tf.get_variable(name+'Transformation', shape=shape, initializer=tf.orthogonal_initializer, regularizer=nn.orthogonal_loss)
-  #layer = tf.reshape(layer, [-1, input_size])
-  #layer = tf.matmul(layer, weights)
-  #layer = tf.reshape(layer, tf.stack([batch_size, bucket_size, linear_size]))
+  batch_size, bucket_size, input_size = nn.get_sizes(layer)
+  shape = [input_size, linear_size]
+  weights = tf.get_variable(name+'Transformation', shape=shape, initializer=tf.orthogonal_initializer)
+  layer = tf.reshape(layer, [-1, input_size])
+  layer = tf.matmul(layer, weights)
+  layer = tf.reshape(layer, tf.stack([batch_size, bucket_size, linear_size]))
   return layer
 
 #===============================================================
