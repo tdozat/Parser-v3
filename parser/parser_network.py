@@ -45,7 +45,7 @@ class ParserNetwork(BaseNetwork):
     
     with tf.variable_scope('Embeddings'):
       if self.sum_pos: # TODO this should be done with a `POSMultivocab`
-        pos_vocabs = filter(lambda x: 'POS' in x.classname, self.input_vocabs)
+        pos_vocabs = list(filter(lambda x: 'POS' in x.classname, self.input_vocabs))
         pos_tensors = [input_vocab.get_input_tensor(embed_keep_prob=1, reuse=reuse) for input_vocab in pos_vocabs]
         non_pos_tensors = [input_vocab.get_input_tensor(reuse=reuse) for input_vocab in self.input_vocabs if 'POS' not in input_vocab.classname]
         if pos_tensors:

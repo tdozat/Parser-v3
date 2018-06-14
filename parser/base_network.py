@@ -256,6 +256,7 @@ class BaseNetwork(object):
   def parse_dataset(self, dataset, graph_outputs, sess, output_dir=None, basename=None):
     """"""
     
+    #field2vocab = {vocab.field: vocab for vocab in self.output_vocabs}
     probability_tensors = graph_outputs.probabilities
     filenames = dataset.filenames
     for file_index, input_filename in enumerate(filenames):
@@ -265,7 +266,11 @@ class BaseNetwork(object):
         probabilities = sess.run(probability_tensors, feed_dict=feed_dict)
         predictions = graph_outputs.probs_to_preds(probabilities)
         tokens = dataset.get_tokens(indices)
-        tokens.update(dataset.preds_to_toks(predictions))
+        tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
+        #------------------------------------
+        # TODO delete this
+        #tokens.update(dataset.preds_to_toks(predictions))
+        #------------------------------------
         graph_outputs.cache_predictions(tokens, indices)
       
       input_dir, basename = os.path.split(input_filename)
