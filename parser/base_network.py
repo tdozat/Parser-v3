@@ -266,7 +266,11 @@ class BaseNetwork(object):
         probabilities = sess.run(probability_tensors, feed_dict=feed_dict)
         predictions = graph_outputs.probs_to_preds(probabilities)
         tokens = dataset.get_tokens(indices)
-        tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
+        try:
+          tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
+        except:
+          with open('debug.log', 'w') as f:
+            f.write('{}\n'.format(list(predictions.keys())))
         #------------------------------------
         # TODO delete this
         #tokens.update(dataset.preds_to_toks(predictions))
@@ -430,3 +434,6 @@ class BaseNetwork(object):
   @property
   def save_model(self):
     return self._config.getboolean(self, 'save_model')
+  @property
+  def classname(self):
+    return self.__class__.__name__
