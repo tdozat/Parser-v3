@@ -59,7 +59,8 @@ class GraphOutputs(object):
     self._factored_deptree = factored_deptree
     self._factored_semgraph = factored_semgraph
     self._config = config
-    self._evals = config.getlist(self, 'evals')
+    self._evals = list(outputs.keys())
+    #self._evals = config.getlist(self, 'evals')
     valid_evals = set([print_map[0] for print_map in self._print_mapping])
     for eval_ in self._evals:
       assert eval_ in valid_evals
