@@ -47,9 +47,9 @@ class ElmoNetwork(BaseNetwork):
     with tf.variable_scope('Embeddings'):
       input_tensors = [input_vocab.get_input_tensor(reuse=reuse) for input_vocab in self.input_vocabs]
       layer = tf.concat(input_tensors, 2)
+    n_nonzero = tf.to_float(tf.count_nonzero(layer, axis=-1, keep_dims=True))
     batch_size, bucket_size, input_size = nn.get_sizes(layer)
-    #n_nonzero = tf.to_float(tf.count_nonzero(layer, axis=-1, keep_dims=True))
-    #layer *= input_size / (n_nonzero + tf.constant(1e-12))
+    layer *= input_size / (n_nonzero + tf.constant(1e-12))
     
     token_weights = nn.greater(self.id_vocab.placeholder, 0)
     tokens_per_sequence = tf.reduce_sum(token_weights, axis=1)
@@ -64,6 +64,7 @@ class ElmoNetwork(BaseNetwork):
     # NOTE <ROOT> = <S>, </S>
     conv_keep_prob = 1. if reuse else self.conv_keep_prob
     recur_keep_prob = 1. if reuse else self.recur_keep_prob
+    recur_include_prob = 1. if reuse else self.recur_include_prob
     
     rev_layer = tf.reverse_sequence(layer, seq_lengths, seq_axis=2)
     for i in six.moves.range(self.n_layers):
@@ -75,8 +76,8 @@ class ElmoNetwork(BaseNetwork):
                                           conv_width=conv_width,
                                           recur_func=self.recur_func,
                                           conv_keep_prob=conv_keep_prob,
+                                          recur_include_prob=recur_include_prob,
                                           recur_keep_prob=recur_keep_prob,
-                                          drop_type=self.drop_type,
                                           cifg=self.cifg,
                                           highway=self.highway,
                                           highway_func=self.highway_func)
@@ -89,7 +90,7 @@ class ElmoNetwork(BaseNetwork):
                                                 recur_func=self.recur_func,
                                                 conv_keep_prob=conv_keep_prob,
                                                 recur_keep_prob=recur_keep_prob,
-                                                drop_type=self.drop_type,
+                                                recur_include_prob=recur_include_prob,
                                                 cifg=self.cifg,
                                                 highway=self.highway,
                                                 highway_func=self.highway_func)

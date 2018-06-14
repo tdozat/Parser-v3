@@ -37,11 +37,11 @@ class DictMultibucket(BaseMultibucket, dict):
     dict.__init__(self)
     
     for vocab in vocabs:
-      self[vocab.field] = [DictBucket(idx, vocab.depth, config=config) for idx in six.moves.range(max_buckets)]
+      self[vocab.classname] = [DictBucket(idx, vocab.depth, config=config) for idx in six.moves.range(max_buckets)]
     
     self._lengths = []
-    self._indices = {vocab.field: [] for vocab in vocabs}
-    self._tokens = {vocab.field: [] for vocab in vocabs}
+    self._indices = {vocab.classname: [] for vocab in vocabs}
+    self._tokens = {vocab.classname: [] for vocab in vocabs}
     self._file_indices = []
     self._max_lengths = []
     return
@@ -51,11 +51,11 @@ class DictMultibucket(BaseMultibucket, dict):
     """"""
     
     self._lengths = []
-    self._indices = {vocab.field: [] for vocab in vocabs}
-    self._tokens = {vocab.field: [] for vocab in vocabs}
+    self._indices = {vocab.classname: [] for vocab in vocabs}
+    self._tokens = {vocab.classname: [] for vocab in vocabs}
     self._file_indices = []
-    for field in self:
-      for bucket in self[field]:
+    for vocab_classname in self:
+      for bucket in self[vocab_classname]:
         bucket.reset()
     return
   
@@ -67,10 +67,10 @@ class DictMultibucket(BaseMultibucket, dict):
     
     if length <= 1:
       return
-    for field in indices.keys():
-      self._indices[field].append(indices[field])
-    for field in tokens.keys():
-      self._tokens[field].append(tokens[field])
+    for vocab_classname in indices.keys():
+      self._indices[vocab_classname].append(indices[vocab_classname])
+    for vocab_classname in tokens.keys():
+      self._tokens[vocab_classname].append(tokens[vocab_classname])
     self._file_indices.append(file_index)
     super(DictMultibucket, self).add(length)
     return 
@@ -85,17 +85,17 @@ class DictMultibucket(BaseMultibucket, dict):
     
     # Open the buckets
     shape = len(self._lengths)
-    dtype = [('file', 'i4'), ('bucket', 'i4')] + [(field, 'i4') for field in self.keys()]
+    dtype = [('file', 'i4'), ('bucket', 'i4')] + [(vocab_classname, 'i4') for vocab_classname in self.keys()]
     data = np.zeros(shape, dtype=dtype)
-    for i, field in enumerate(self.keys()):
-      for bucket in self[field]:
+    for i, vocab_classname in enumerate(self.keys()):
+      for bucket in self[vocab_classname]:
         bucket.open()
     
       # Add sentences to them
-      for j, (indices, tokens) in enumerate(zip(self._indices[field], self._tokens[field])):
+      for j, (indices, tokens) in enumerate(zip(self._indices[vocab_classname], self._tokens[vocab_classname])):
         bucket_index = len2bkt[len(indices)]
-        sequence_index = self[field][bucket_index].add(indices, tokens)
-        data[field][j] = sequence_index
+        sequence_index = self[vocab_classname][bucket_index].add(indices, tokens)
+        data[vocab_classname][j] = sequence_index
         if i == 0:
           data['file'][j] = self._file_indices[j]
           data['bucket'][j] = bucket_index
@@ -103,30 +103,30 @@ class DictMultibucket(BaseMultibucket, dict):
           assert data['bucket'][j] == bucket_index, 'CoNLLU data is somehow misaligned'
     
     # Close the buckets
-    for field in self:
-      for bucket in self[field]:
+    for vocab_classname in self:
+      for bucket in self[vocab_classname]:
         bucket.close()
     super(DictMultibucket, self).close(data)
     
     return
   
   #=============================================================
-  def get_data(self, field, indices):
+  def get_data(self, vocab_classname, indices):
     """"""
     
     bucket_index = np.unique(self.bucket_indices[indices])
     assert len(bucket_index) == 1, 'Requested data from multiple (or no) buckets'
     
     bucket_index = bucket_index[0]
-    data_indices = self.data[field][indices]
-    data = self[field][bucket_index].data[data_indices]
+    data_indices = self.data[vocab_classname][indices]
+    data = self[vocab_classname][bucket_index].data[data_indices]
     return data
   
   #=============================================================
-  def get_tokens(self, field, indices):
+  def get_tokens(self, vocab_classname, indices):
     """"""
     
-    return [self._tokens[field][index] for index in indices]
+    return [self._tokens[vocab_classname][index] for index in indices]
   
   #=============================================================
   @property

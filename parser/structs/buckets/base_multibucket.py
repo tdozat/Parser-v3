@@ -114,3 +114,8 @@ class BaseMultibucket(object):
       raise 
     self.close()
     return
+
+  #=============================================================
+  @property
+  def classname(self):
+    return self.__class__.__name__

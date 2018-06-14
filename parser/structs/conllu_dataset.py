@@ -40,7 +40,7 @@ class CoNLLUDataset(dict):
     
     super(CoNLLUDataset, self).__init__()
     
-    self.update({vocab.field: vocab for vocab in vocabs})
+    self.update({vocab.classname: vocab for vocab in vocabs})
     self._multibucket = DictMultibucket(vocabs, max_buckets=config.getint(self, 'max_buckets'), config=config)
     self._is_open = False
     self._config = config
@@ -92,7 +92,7 @@ class CoNLLUDataset(dict):
     
     sent_tokens = {}
     sent_indices = {}
-    for field, vocab in six.iteritems(self):
+    for vocab_classname, vocab in six.iteritems(self):
       try:
         tokens = [line[vocab.conllu_idx] for line in sent]
         if self.prefix_root:
@@ -102,8 +102,8 @@ class CoNLLUDataset(dict):
       except:
         raise
       indices = vocab.add_sequence(tokens) # for graphs, list of (head, label) pairs
-      sent_tokens[field] = tokens
-      sent_indices[field] = indices
+      sent_tokens[vocab_classname] = tokens
+      sent_indices[vocab_classname] = indices
     self._multibucket.add(sent_indices, sent_tokens, file_index=file_index, length=len(sent)+1)
     return
   
@@ -158,8 +158,8 @@ class CoNLLUDataset(dict):
   def set_placeholders(self, indices, feed_dict={}):
     """"""
     
-    for field, vocab in six.iteritems(self):
-      data = self._multibucket.get_data(field, indices)
+    for vocab_classname, vocab in six.iteritems(self):
+      data = self._multibucket.get_data(vocab_classname, indices)
       feed_dict = vocab.set_placeholders(data, feed_dict=feed_dict)
     #with open('debug.log', 'w') as f:
     #  f.write('{}'.format(feed_dict))
@@ -170,9 +170,9 @@ class CoNLLUDataset(dict):
     """"""
     
     tokens = {}
-    for field, preds in six.iteritems(predictions):
+    for vocab_classname, preds in six.iteritems(predictions):
       try:
-        tokens[field] = self[field][preds]
+        tokens[vocab_classname] = self[vocab_classname][preds]
       except:
         raise 
     return tokens
@@ -182,8 +182,8 @@ class CoNLLUDataset(dict):
     """"""
     
     token_dict = {}
-    for field, vocab in six.iteritems(self):
-      token_dict[field] = self._multibucket.get_tokens(field, indices)
+    for vocab_classname, vocab in six.iteritems(self):
+      token_dict[vocab_classname] = self._multibucket.get_tokens(vocab_classname, indices)
     return token_dict
   
   #=============================================================

@@ -47,13 +47,13 @@ class BaseVocab(object):
   def __init__(self, placeholder_shape=[None, None], config=None):
     """"""
     
-    self.placeholder = tf.placeholder(tf.int32, placeholder_shape, name=self.__class__.__name__)
+    self.placeholder = tf.placeholder(tf.int32, placeholder_shape, name=self.classname)
     self._config = config
     return
   
   #=============================================================
   def __call__(self):
-    raise NotImplementedError('%s has no __call__' % self.__class__.__name__)
+    raise NotImplementedError('%s has no __call__' % self.classname)
   
   #=============================================================
   def add_sequence(self, tokens):
@@ -82,7 +82,7 @@ class BaseVocab(object):
   
   #=============================================================
   def get_root(self):
-    raise NotImplementedError('get_root not implemented for %s' % self.__class__.__name__)
+    raise NotImplementedError('get_root not implemented for %s' % self.classname)
   
   #=============================================================
   def load(self):
@@ -98,6 +98,9 @@ class BaseVocab(object):
   @property
   def depth(self):
     return self._depth
+  @property
+  def classname(self):
+    return self.__class__.__name__
   
   #=============================================================
   def __enter__(self):
@@ -107,6 +110,8 @@ class BaseVocab(object):
       raise 
     self.close()
     return
+  def __hash__(self):
+    return hash(self.classname)
   
 #***************************************************************
 class SetVocab(BaseVocab):

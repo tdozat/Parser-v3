@@ -39,7 +39,7 @@ class ListMultibucket(BaseMultibucket, list):
     for _ in xrange(max_buckets):
       self.append(ListBucket(len(self), config=config))
     
-    self._field = vocab.field
+    self._vocab_classname = vocab.classname
     self._lengths = [0]
     self._indices = [[]]
     self._tokens = [[]]
@@ -141,8 +141,8 @@ class ListMultibucket(BaseMultibucket, list):
   
   #=============================================================
   @property
-  def field(self):
-    return self._field
+  def vocab_classname(self):
+    return self._vocab_classname
   @property
   def tokens(self):
     return self._tokens

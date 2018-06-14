@@ -44,10 +44,10 @@ class ParserNetwork(BaseNetwork):
     """"""
     
     with tf.variable_scope('Embeddings'):
-      if self.sum_pos:
-        pos_vocabs = list(filter(lambda x: 'POS' in x.__class__.__name__, self.input_vocabs))
+      if self.sum_pos: # TODO this should be done with a `POSMultivocab`
+        pos_vocabs = filter(lambda x: 'POS' in x.classname, self.input_vocabs)
         pos_tensors = [input_vocab.get_input_tensor(embed_keep_prob=1, reuse=reuse) for input_vocab in pos_vocabs]
-        non_pos_tensors = [input_vocab.get_input_tensor(reuse=reuse) for input_vocab in self.input_vocabs if 'POS' not in input_vocab.__class__.__name__]
+        non_pos_tensors = [input_vocab.get_input_tensor(reuse=reuse) for input_vocab in self.input_vocabs if 'POS' not in input_vocab.classname]
         if pos_tensors:
           pos_tensors = tf.add_n(pos_tensors)
           pos_tensors = [pos_vocabs[0].drop_func(pos_tensors, pos_vocabs[0].embed_keep_prob if not reuse else 1)]
@@ -89,15 +89,13 @@ class ParserNetwork(BaseNetwork):
                                           highway_func=self.highway_func,
                                           bilin=self.bilin)
   
-    input_vocabs = {vocab.field: vocab for vocab in self.input_vocabs}
-    output_vocabs = {vocab.field: vocab for vocab in self.output_vocabs}
+    output_fields = {vocab.field: vocab for vocab in self.output_vocabs}
     outputs = {}
     with tf.variable_scope('Classifiers'):
-      if 'deprel' in output_vocabs:
-        vocab = output_vocabs['deprel']
-        head_vocab = output_vocabs['dephead']
+      if 'deprel' in output_fields:
+        vocab = output_fields['deprel']
         if vocab.factorized:
-          head_vocab = output_vocabs['dephead']
+          head_vocab = output_fields['dephead']
           with tf.variable_scope('Unlabeled'):
             unlabeled_outputs = head_vocab.get_bilinear_classifier(
               layer,
@@ -109,13 +107,13 @@ class ParserNetwork(BaseNetwork):
               token_weights=token_weights,
               reuse=reuse)
         else:
-          labeled_outputs = vocab.get_unfactored_bilinear_classifier( layer, head_vocab.placeholder,
+          labeled_outputs = vocab.get_unfactored_bilinear_classifier(layer, head_vocab.placeholder,
             token_weights=token_weights,
             reuse=reuse)
         outputs['deptree'] = labeled_outputs
       elif 'dephead' in output_vocabs:
-        vocab = output_vocabs['dephead']
-        outputs[vocab.field] = vocab.get_bilinear_classifier(
+        vocab = output_fields['dephead']
+        outputs[vocab.classname] = vocab.get_bilinear_classifier(
           layer,
           token_weights=token_weights,
           reuse=reuse)

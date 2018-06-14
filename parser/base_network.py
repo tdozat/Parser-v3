@@ -42,7 +42,6 @@ class BaseNetwork(object):
   _postfix_root = None
   
   #=============================================================
-  # TODO the vocabs should be (ordered?) dicts rather than lists
   def __init__(self, id_vocab=None, input_vocabs=None, output_vocabs=None, extra_vocabs=None, config=None):
     """"""
     
@@ -56,39 +55,39 @@ class BaseNetwork(object):
     
     if input_vocabs is None:
       input_vocabs = config.getlist(self, 'input_vocabs')
-      self._input_vocabs = []
+      self._input_vocabs = set()
       for input_vocab in input_vocabs:
         VocabClass = getattr(vocabs, input_vocab)
         vocab = VocabClass(config=config)
         vocab.load() or vocab.count(self.train_conllus)
-        self._input_vocabs.append(vocab)
+        self._input_vocabs.add(vocab)
     else:
       self._input_vocabs = input_vocabs
     
     if output_vocabs is None:
       output_vocabs = config.getlist(self, 'output_vocabs')
-      self._output_vocabs = []
+      self._output_vocabs = set()
       for output_vocab in output_vocabs:
         VocabClass = getattr(vocabs, output_vocab)
         vocab = VocabClass(config=config)
         vocab.load() or vocab.count(self.train_conllus)
-        self._output_vocabs.append(vocab)
+        self._output_vocabs.add(vocab)
     else:
       self._output_vocabs = output_vocabs
     
     if extra_vocabs is None:
       extra_vocabs = config.getlist(self, 'extra_vocabs')
-      self._extra_vocabs = []
+      self._extra_vocabs = set()
       for extra_vocab in extra_vocabs:
         VocabClass = getattr(vocabs, extra_vocab)
         vocab = VocabClass(config=config)
         vocab.load() or vocab.count(self.train_conllus)
-        self._extra_vocabs.append(vocab)
+        self._extra_vocabs.add(vocab)
     else:
       self._extra_vocabs = extra_vocabs
     
     self.global_step = tf.Variable(0., trainable=False, name='Global_step')
-    self._vocabs = [self._id_vocab] + self._input_vocabs + self._extra_vocabs + self._output_vocabs
+    self._vocabs = {self._id_vocab} | self._input_vocabs | self._extra_vocabs | self._output_vocabs
     return
   
   #=============================================================
@@ -304,7 +303,8 @@ class BaseNetwork(object):
     non_save_variables = set(tf.get_collection('non_save_variables'))
     save_variables = all_variables - non_save_variables
     saver = tf.train.Saver(list(save_variables), max_to_keep=1)
-
+    
+    output_fields = {vocab.field: vocab for vocab in self.output_vocabs}
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     with tf.Session(config=config) as sess:
