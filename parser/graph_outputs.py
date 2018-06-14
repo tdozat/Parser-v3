@@ -33,7 +33,7 @@ import numpy as np
 import tensorflow as tf
 
 from parser.neural import nn
-from parser.scripts.chuliu_edmonds import chuliu_edmonds_one_root
+from scripts.chuliu_edmonds import chuliu_edmonds_one_root
 
 #***************************************************************
 class GraphOutputs(object):
@@ -159,7 +159,7 @@ class GraphOutputs(object):
         dephead_probs = deptree_probs.sum(axis=-1)
         # (n x m x m) -> (n x m)
         #dephead_preds = np.argmax(dephead_probs, axis=-1)
-        dephead_preds = chuliu_edmonds_one_root(dephead_probs)
+        dephead_preds = np.vstack([chuliu_edmonds_one_root(_dephead_probs) for _dephead_probs in dephead_probs])
         # ()
         bucket_size = dephead_preds.shape[1]
         # (n x m) -> (n x m x m)

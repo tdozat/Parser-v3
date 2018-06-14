@@ -54,7 +54,7 @@ class Config(SafeConfigParser, object):
     if '_'+option in obj.__dict__:
       return obj.__dict__['_'+option]
     cls = obj.__class__
-    superclasses = [superclass.__name__ for superclass in cls.__mro__]# + ['OS']
+    superclasses = [superclass.__name__ for superclass in cls.__mro__]
     for superclass in superclasses:
       if self.has_section(superclass) and \
          self.has_option(superclass, option):

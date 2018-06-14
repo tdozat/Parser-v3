@@ -130,6 +130,11 @@ class BaseNetwork(object):
     amsgrad_op = amsgrad.minimize(train_outputs.loss + regularization_loss) # returns the current step
     amsgrad_train_tensors = [amsgrad_op, train_outputs.accuracies]
     dev_tensors = dev_outputs.accuracies
+    if self.save_model:
+      all_variables = set(tf.global_variables())
+      non_save_variables = set(tf.get_collection('non_save_variables'))
+      save_variables = all_variables - non_save_variables
+      saver = tf.train.Saver(list(save_variables), max_to_keep=1)
     
     screen_output = []
     config = tf.ConfigProto()
@@ -198,6 +203,8 @@ class BaseNetwork(object):
                 if current_accuracy >= best_accuracy:
                   steps_since_best = 0
                   best_accuracy = current_accuracy
+                  if self.save_model:
+                    saver.save(sess, os.path.join(self.save_dir, 'ckpt'), global_step=self.global_step)
                   self.parse_dataset(devset, dev_outputs, sess)
                   self.parse_dataset(testset, dev_outputs, sess)
                 else:
@@ -247,12 +254,12 @@ class BaseNetwork(object):
     return
   
   #=============================================================
-  def parse_dataset(self, dataset, graph_outputs, sess):
+  def parse_dataset(self, dataset, graph_outputs, sess, output_dir=None, basename=None):
     """"""
     
     probability_tensors = graph_outputs.probabilities
     filenames = dataset.filenames
-    for file_index, filename in enumerate(filenames):
+    for file_index, input_filename in enumerate(filenames):
       for indices in dataset.file_batch_iterator(file_index):
         graph_outputs.restart_timer()
         feed_dict = dataset.set_placeholders(indices)
@@ -262,13 +269,53 @@ class BaseNetwork(object):
         tokens.update(dataset.preds_to_toks(predictions))
         graph_outputs.cache_predictions(tokens, indices)
       
-      dirname, basename = os.path.split(filename)
-      newdirname = os.path.join(self.save_dir, 'parsed', dirname)
-      newfilename = os.path.join(newdirname, basename)
-      if not os.path.exists(newdirname):
-        os.makedirs(newdirname)
-      with codecs.open(newfilename, 'w', encoding='utf-8') as f:
+      input_dir, basename = os.path.split(input_filename)
+      if output_dir is None:
+        output_dir = os.path.join(self.save_dir, 'parsed', input_dir)
+      if basename is None:
+        b= output_filename
+      output_filename = os.path.join(output_dir, basename)
+      if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+      with codecs.open(output_filename, 'w', encoding='utf-8') as f:
         graph_outputs.dump_current_predictions(f)
+    return
+
+  #=============================================================
+  def parse(self, conllu_files, output_dir=None, basename=None):
+    """"""
+
+    parseset = conllu_dataset.CoNLLUDataset(conllu_files, self.vocabs,
+                                            prefix_root=self.prefix_root,
+                                            postfix_root=self.postfix_root,
+                                            config=self._config)
+    
+    factored_deptree = None
+    factored_semgraph = None
+    for vocab in self.output_vocabs:
+      if vocab.field == 'deprel':
+        factored_deptree = vocab.factorized
+      elif vocab.field == 'semrel':
+        factored_semgraph = vocab.factorized
+    with tf.variable_scope('Network', reuse=true):
+      parse_outputs = DevOutputs(*self.build_graph(reuse=true), load=load, factored_deptree=factored_deptree, factored_semgraph=factored_semgraph, config=self._config)
+    parse_tensors = parse_outputs.accuracies
+    all_variables = set(tf.global_variables())
+    non_save_variables = set(tf.get_collection('non_save_variables'))
+    save_variables = all_variables - non_save_variables
+    saver = tf.train.Saver(list(save_variables), max_to_keep=1)
+
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    with tf.Session(config=config) as sess:
+      sess.run(tf.global_variables_initializer())
+      saver.restore(sess, os.path.join(self.save_dir, 'ckpt'))
+      for batch in parseset.shuffled_batch_iterator():
+        parse_outputs.restart_timer()
+        feed_dict = parseset.set_placeholders(batch)
+        parse_scores = sess.run(parse_tensors, feed_dict=feed_dict)
+        parse_outputs.update_history(parse_scores)
+        self.parse_dataset(parseset, parse_outputs, sess, output_dir=output_dir, basename=basename)
     return
   
   #=============================================================
@@ -375,3 +422,6 @@ class BaseNetwork(object):
   @property
   def max_steps_without_improvement(self):
     return self._config.getint(self, 'max_steps_without_improvement')
+  @property
+  def save_model(self):
+    return self._config.getboolean(self, 'save_model')

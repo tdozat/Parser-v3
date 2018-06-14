@@ -70,6 +70,7 @@ class PretrainedVocab(SetVocab):
       if self.variable is None:
         with tf.device('/cpu:0'):
           self.variable = tf.Variable(self.embeddings, name=self.name+'Embeddings', trainable=False)
+          tf.add_to_collection('non_save_variables', self.variable)
       layer = embeddings.pretrained_embedding_lookup(self.variable, self.linear_size,
                                                      self.placeholder,
                                                      name=self.name,
