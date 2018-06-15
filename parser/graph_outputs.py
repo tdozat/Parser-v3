@@ -136,6 +136,10 @@ class GraphOutputs(object):
     
     predictions = {}
     
+    if 'form' in probabilities:
+      form_probs = probabilities['form']
+      form_preds = np.argmax(form_probs, axis=-1)
+      predictions['form'] = form_preds
     if 'lemma' in probabilities:
       lemma_probs = probabilities['lemma']
       lemma_preds = np.argmax(lemma_probs, axis=-1)
@@ -218,13 +222,13 @@ class GraphOutputs(object):
     return
   
   #=============================================================
-  def dump_current_predictions(self, f):
+  def dump_current_predictions(self, f, prefix_root=True):
     """"""
     
     order = np.argsort(self.predictions['indices'])
     fields = ['form', 'lemma', 'upos', 'xpos', 'morph', 'dephead', 'deprel', 'semrel', 'misc']
     for i in order:
-      j = 1
+      j = prefix_root
       token = []
       while j < len(self.predictions['id'][i]):
         token = [self.predictions['id'][i][j]]

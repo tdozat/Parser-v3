@@ -148,6 +148,9 @@ class PretrainedVocab(SetVocab):
   def embeddings(self):
     return self._embeddings
   @property
+  def embed_keep_prob(self):
+    return self._config.getfloat(self, 'max_embed_count')
+  @property
   def embed_size(self):
     return self._embed_size
   @property

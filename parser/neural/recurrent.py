@@ -90,7 +90,7 @@ def RNN(layer, recur_size, conv_width=0, recur_func=nonlin.relu, conv_keep_prob=
         zone_mask = nn.binary_mask([batch_size, recur_size], recur_include_prob)
         current_hidden = zone_mask*current_hidden + (1-zone_mask)*last_hidden
       current_hidden = tf.where(i < seq_lengths, current_hidden, null_hidden)
-      current_hidden_sequence = last_hidden_sequence.write(i, tf.where(i < seq_lengths, current_hidden, last_hidden))
+      current_hidden_sequence = last_hidden_sequence.write(i, tf.where(i < seq_lengths, current_hidden, null_hidden))
       return (i+1, current_hidden, current_hidden_sequence)
     #-------------------------------------------------------------
     loop_vars = (i, initial_hidden, hidden_sequence)
@@ -160,7 +160,7 @@ def LSTM(layer, recur_size, seq_lengths, conv_width=0, recur_func=nonlin.tanh, c
         current_cell = zone_mask*current_cell + (1-zone_mask)*last_cell
       current_state = tf.concat([current_hidden, current_cell], 1)
       current_state = tf.where(i < seq_lengths, current_state, null_state)
-      current_state_sequence = last_state_sequence.write(i, tf.where(i < seq_lengths, current_state, last_state))
+      current_state_sequence = last_state_sequence.write(i, tf.where(i < seq_lengths, current_state, null_state))
       return (i+1, current_state, current_state_sequence)
     #-------------------------------------------------------------
     loop_vars = (i, initial_state, state_sequence)

@@ -108,7 +108,7 @@ class Config(SafeConfigParser, object):
   def getboolean(self, obj, option):
     return self._get_value(super(Config, self).getboolean, obj, option)
   def getlist(self, obj, option):
-    if self._get_value(super(Config, self).get, obj, option) == '':
+    if self._get_value(super(Config, self).get, obj, option) in ('', None):
       return []
     else:
       return self._get_list(self._get_value(super(Config, self).get, obj, option))

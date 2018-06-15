@@ -651,7 +651,6 @@ class GraphTokenVocab(TokenVocab):
     # Populate the output dictionary
     outputs = {}
     outputs['recur_layer'] = recur_layer
-    outputs['embeddings'] = 
     outputs['unlabeled_targets'] = unlabeled_targets
     outputs['label_targets'] = self.placeholder
     outputs['probabilities'] = probabilities

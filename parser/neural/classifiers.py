@@ -118,13 +118,44 @@ def linear_attention(layer, hidden_keep_prob=1.):
   # (nm x 1) -> (n x m)
   attn = tf.reshape(attn, layer_shape)
   # (n x m) -> (n x m)
-  soft_attn = tf.nn.sigmoid(attn)
+  attn = tf.nn.sigmoid(attn)
   # (n x m) -> (n x 1 x m)
-  soft_attn = tf.expand_dims(soft_attn, axis=-2)
+  soft_attn = tf.expand_dims(attn, axis=-2)
   # (n x 1 x m) * (n x m x d) -> (n x 1 x d)
   weighted_layer = tf.matmul(soft_attn, layer)
   # (n x 1 x d) -> (n x d)
   weighted_layer = tf.squeeze(weighted_layer, -2)
+  return attn, weighted_layer
+
+#===============================================================
+def deep_linear_attention(layer, hidden_size, hidden_func=tf.identity, hidden_keep_prob=1.):
+  """"""
+  
+  layer_shape = nn.get_sizes(layer)
+  input_size = layer_shape.pop()
+  weights = tf.get_variable('Weights', shape=[input_size, hidden_size+1], initializer=tf.zeros_initializer)
+  if hidden_keep_prob < 1.:
+    if len(layer_shape) > 1:
+      noise_shape = tf.stack(layer_shape[:-1] + [1, input_size])
+    else:
+      noise_shape = None
+    layer = nn.dropout(layer, hidden_keep_prob, noise_shape=noise_shape)
+  
+  # (n x m x d) -> (nm x d)
+  layer_reshaped = tf.reshape(layer, [-1, input_size])
+  
+  # (nm x d) * (d x o+1) -> (nm x o+1)
+  attn = tf.matmul(layer_reshaped, weights)
+  # (nm x o+1) -> (nm x 1), (nm x o)
+  attn, layer = tf.split(attn, [1, hidden_size], axis=-1)
+  # (nm x 1) -> (nm x 1)
+  attn = tf.nn.sigmoid(attn)
+  # (nm x 1) o (nm x o) -> (nm x o)
+  weighted_layer = hidden_func(layer) * attn
+  # (nm x 1) -> (n x m)
+  attn = tf.reshape(attn, layer_shape)
+  # (nm x o) -> (n x m x o)
+  weighted_layer = nn.reshape(weighted_layer, layer_shape+[hidden_size])
   return attn, weighted_layer
   
 #===============================================================

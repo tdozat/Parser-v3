@@ -50,7 +50,8 @@ class BaseNetwork(object):
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
     
     self._input_networks = input_networks
-    assert self._input_networks == set(config.getlist(self, 'input_networks')), 'Not all input networks were passed in to {}'.format(self.classname)
+    input_network_classes = set(input_network.classname for input_network in self._input_networks)
+    assert input_network_classes == set(self.input_network_classes), 'Not all input networks were passed in to {}'.format(self.classname)
     
     extant_vocabs = {}
     for input_network in self.input_networks:
@@ -66,7 +67,7 @@ class BaseNetwork(object):
       self._id_vocab = vocabs.IDIndexVocab(config=config)
       
     self._input_vocabs = set()
-    for input_vocab_classname in config.getlist(self, 'input_vocabs'):
+    for input_vocab_classname in self.input_vocab_classes:
       if input_vocab_classname in extant_vocabs:
         self._input_vocabs.add(extant_vocabs[input_vocab_classname])
       else:
@@ -76,7 +77,7 @@ class BaseNetwork(object):
         self._input_vocabs.add(vocab)
     
     self._output_vocabs = set()
-    for output_vocab_classname in config.getlist(self, 'output_vocabs'):
+    for output_vocab_classname in self.output_vocab_classes:
       if output_vocab_classname in extant_vocabs:
         self._output_vocabs.add(extant_vocabs[output_vocab_classname])
       else:
@@ -86,7 +87,7 @@ class BaseNetwork(object):
         self._output_vocabs.add(vocab)
     
     self._throughput_vocabs = set()
-    for throughput_vocab_classname in config.getlist(self, 'throughput_vocabs'):
+    for throughput_vocab_classname in self.output_vocab_classes:
       if throughput_vocab_classname in extant_vocabs:
         self._throughput_vocabs.add(extant_vocabs[throughput_vocab_classname])
       else:
@@ -96,7 +97,7 @@ class BaseNetwork(object):
         self._throughput_vocabs.add(vocab)
     
     self.global_step = tf.Variable(0., trainable=False, name='Global_step')
-    self._vocabs = {self.id_vocab} | self.input_vocabs | self.output_vocabs | self._throughput_vocabs | extant_vocabs
+    self._vocabs = {self.id_vocab} | self.input_vocabs | self.output_vocabs | self.throughput_vocabs | set(extant_vocabs.values())
     return
   
   #=============================================================
@@ -124,7 +125,7 @@ class BaseNetwork(object):
         factored_deptree = vocab.factorized
       elif vocab.field == 'semrel':
         factored_semgraph = vocab.factorized
-    input_network_tensors = {}
+    input_network_outputs = {}
     for input_network in self.input_networks:
       with tf.variable_scope(input_network.classname, reuse=True):
         input_network_outputs[input_network.classname] = input_network.build_graph(reuse=True)[0]
@@ -138,14 +139,15 @@ class BaseNetwork(object):
     
     update_step = tf.assign_add(self.global_step, 1)
     adam = AdamOptimizer(config=self._config)
-    adam_op = adam.minimize(train_outputs.loss + regularization_loss) # returns the current step
+    adam_op = adam.minimize(train_outputs.loss + regularization_loss, variables=tf.trainable_variables(scope=self.classname)) # returns the current step
     adam_train_tensors = [adam_op, train_outputs.accuracies]
     amsgrad = AMSGradOptimizer.from_optimizer(adam)
-    amsgrad_op = amsgrad.minimize(train_outputs.loss + regularization_loss) # returns the current step
+    amsgrad_op = amsgrad.minimize(train_outputs.loss + regularization_loss, variables=tf.trainable_variables(scope=self.classname)) # returns the current step
     amsgrad_train_tensors = [amsgrad_op, train_outputs.accuracies]
     dev_tensors = dev_outputs.accuracies
+    # I think this needs to come after the optimizers
     if self.save_model:
-      all_variables = set(tf.global_variables())
+      all_variables = set(tf.global_variables(scope=self.classname))
       non_save_variables = set(tf.get_collection('non_save_variables'))
       save_variables = all_variables - non_save_variables
       saver = tf.train.Saver(list(save_variables), max_to_keep=1)
@@ -201,6 +203,9 @@ class BaseNetwork(object):
               train_tensors = amsgrad_train_tensors
               current_optimizer = 'AMSGrad'
             for batch in trainset.shuffled_batch_iterator():
+              # batch correctly yields an array of indices
+              #with open('debug.log', 'w') as f:
+              #  f.write('{}'.format(batch))
               train_outputs.restart_timer()
               feed_dict = trainset.set_placeholders(batch)
               _, train_scores = sess.run(train_tensors, feed_dict=feed_dict)
@@ -219,8 +224,9 @@ class BaseNetwork(object):
                   best_accuracy = current_accuracy
                   if self.save_model:
                     saver.save(sess, os.path.join(self.save_dir, 'ckpt'), global_step=self.global_step)
-                  self.parse_dataset(devset, dev_outputs, sess)
-                  self.parse_dataset(testset, dev_outputs, sess)
+                  if self.parse_datasets:
+                    self.parse_dataset(devset, dev_outputs, sess)
+                    self.parse_dataset(testset, dev_outputs, sess)
                 else:
                   steps_since_best += self.print_every
                 current_epoch = sess.run(self.global_step)
@@ -262,8 +268,8 @@ class BaseNetwork(object):
       curses.wrapper(run)
       
       with open(os.path.join(self.save_dir, 'scores.txt'), 'w') as f:
-        f.write('\n'.join(screen_output))
-      print('\n'.join(screen_output))
+        f.write(b'\n'.join(screen_output))
+      print(b'\n'.join(screen_output))
       
     return
   
@@ -271,7 +277,6 @@ class BaseNetwork(object):
   def parse_dataset(self, dataset, graph_outputs, sess, output_dir=None, basename=None):
     """"""
     
-    #field2vocab = {vocab.field: vocab for vocab in self.output_vocabs}
     probability_tensors = graph_outputs.probabilities
     filenames = dataset.filenames
     for file_index, input_filename in enumerate(filenames):
@@ -293,7 +298,7 @@ class BaseNetwork(object):
       if not os.path.exists(output_dir):
         os.makedirs(output_dir)
       with codecs.open(output_filename, 'w', encoding='utf-8') as f:
-        graph_outputs.dump_current_predictions(f)
+        graph_outputs.dump_current_predictions(f, root_prefix=self._prefix_root)
     return
 
   #=============================================================
@@ -380,6 +385,21 @@ class BaseNetwork(object):
   @property
   def output_vocabs(self):
     return self._output_vocabs
+  @property
+  def input_networks(self):
+    return self._input_networks
+  @property
+  def input_network_classes(self):
+    return self._config.getlist(self, 'input_network_classes')
+  @property
+  def input_vocab_classes(self):
+    return self._config.getlist(self, 'input_vocab_classes')
+  @property
+  def output_vocab_classes(self):
+    return self._config.getlist(self, 'output_vocab_classes')
+  @property
+  def throughput_vocab_classes(self):
+    return self._config.getlist(self, 'throughput_vocab_classes')
   @property
   def l2_reg(self):
     return self._config.getfloat(self, 'l2_reg')
@@ -469,6 +489,9 @@ class BaseNetwork(object):
   @property
   def max_steps_without_improvement(self):
     return self._config.getint(self, 'max_steps_without_improvement')
+  @property
+  def parse_datasets(self):
+    return self._config.getboolean(self, 'parse_datasets')
   @property
   def save_model(self):
     return self._config.getboolean(self, 'save_model')

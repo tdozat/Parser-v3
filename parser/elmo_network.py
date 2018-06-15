@@ -119,7 +119,7 @@ class ElmoNetwork(BaseNetwork):
         layer = tf.concat([layer*rev_layer, layer, rev_layer], axis=2)
       else:
         layer = tf.concat([layer, rev_layer], axis=2)
-    input_vocabs = {vocab.field: vocab for vocab in self.input_vocabs}
+    #input_vocabs = {vocab.field: vocab for vocab in self.input_vocabs}
     output_vocabs = {vocab.field: vocab for vocab in self.output_vocabs}
     outputs = {}
     with tf.variable_scope('Classifiers'):

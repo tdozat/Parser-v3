@@ -34,6 +34,14 @@ import parser
 from hpo import MVGHPO
 from hpo.evals.syndep_eval import evaluate_tokens
 
+section_names = set()
+with codecs.open(os.path.join('config', 'defaults.cfg')) as f:
+  section_regex = re.compile('\[(.*)\]')
+  for line in f:
+    match = section_regex.match(line)
+    if match:
+      section_names.add(match.group(1))
+
 #***************************************************************
 # Set up the argument parser
 def main():
@@ -43,13 +51,6 @@ def main():
   argparser.add_argument('--save_metadir')
   argparser.add_argument('--save_dir')
   subparsers = argparser.add_subparsers()
-  section_names = set()
-  with codecs.open(os.path.join('config', 'defaults.cfg')) as f:
-    section_regex = re.compile('\[(.*)\]')
-    for line in f:
-      match = section_regex.match(line)
-      if match:
-        section_names.add(match.group(1))
   
   # set up the training parser
   train_parser = subparsers.add_parser('train')
@@ -136,41 +137,33 @@ def train(**kwargs):
   if os.path.isdir(save_dir):
     config_file = os.path.join(save_dir, 'config.cfg')
   else:
-    os.mkdirs(save_dir)
+    os.makedirs(save_dir)
   
   kwargs['DEFAULT']['save_dir'] = save_dir
   config = Config(config_file=config_file, **kwargs)
-  #-------------------------------------------------------------
-  def resolve_network_dependencies(config, network_class, networks):
-    if network_class in networks:
-      return networks
-    network_list = config.get(network_class, input_networks)
-    if network_list in ('None', ''):
-      config_file = os.path.join(config.getstring(network_class + '_dir'), 'config.cfg')
-      _config = Config(config_file=config_file)
-      networks[network_class] = getattr(parser, network_class)(config=_config)
-      return networks
-    else:
-      network_list = network_list.split(':')
-      input_networks = set()
-      for _network_class in network_list:
-        config_file = os.path.join(config.getstring(_network_class + '_dir'), 'config.cfg')
-        _config = Config(config_file=config_file)
-        networks = resolve_network_dependencies(_config, _network_class, networks)
-        input_networks.add(networks[_network_class])
-      networks[network_class] = getattr(parser, network_class)(input_networks=input_networks, config=config)
-      return networks
-  #-------------------------------------------------------------
-  networks = resolve_network_dependencies(config, network_class, {})
-  network_list = config.get(network_class, input_networks)
-  if network_list in ('None', ''):
-    input_networks = set()
-  else:
-    input_networks = set(networks[input_network] for input_network in network_list.split(':'))
-  network = network_class(input_networks=input_networks, config=config)
+  network_list = config.get(network_class, 'input_network_classes')
   if not load:
     with open(os.path.join(save_dir, 'config.cfg'), 'w') as f:
       config.write(f)
+  #-------------------------------------------------------------
+  def resolve_network_dependencies(config, network_class, network_list, networks):
+    if network_list in ('None', ''):
+      return set(), networks
+    else:
+      network_list = network_list.split(':')
+      if network_class not in networks:
+        for _network_class in network_list:
+          config_file = os.path.join(config.get('DEFAULT', _network_class + '_dir'), 'config.cfg')
+          _config = Config(config_file=config_file)
+          _network_list = _config.get(_network_class, 'input_network_classes')
+          input_networks, networks = resolve_network_dependencies(_config, _network_class, _network_list, networks)
+          NetworkClass = getattr(parser, _network_class)
+          networks[network_class] = NetworkClass(input_networks=input_networks, config=config)
+      return set(networks[_network_class] for _network_class in network_list), networks
+  #-------------------------------------------------------------
+  input_networks, networks = resolve_network_dependencies(config, network_class, network_list, {})
+  NetworkClass = getattr(parser, network_class)
+  network = NetworkClass(input_networks=input_networks, config=config)
   network.train(load=load)
   return
 

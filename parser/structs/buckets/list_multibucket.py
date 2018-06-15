@@ -18,6 +18,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+import six
 
 import numpy as np
 import tensorflow as tf
@@ -36,7 +37,7 @@ class ListMultibucket(BaseMultibucket, list):
     super(ListMultibucket, self).__init__(max_buckets, config=config)
     list.__init__(self)
     
-    for _ in xrange(max_buckets):
+    for _ in six.moves.range(max_buckets):
       self.append(ListBucket(len(self), config=config))
     
     self._vocab_classname = vocab.classname
@@ -120,14 +121,14 @@ class ListMultibucket(BaseMultibucket, list):
     bucket_indices = subdata['bucket']
     bucket_sequence_indices = []
     unique_bucket_indices = set(np.unique(bucket_indices))
-    for i in xrange(len(self)):
+    for i in six.moves.range(len(self)):
       if i in unique_bucket_indices:
         bucket_i_indices = np.where(bucket_indices == i)[0]
         bucket_i_sequence_indices = subdata['sequence'][bucket_i_indices]
         self[i].set_placeholders(bucket_i_sequence_indices, feed_dict=feed_dict)
         bucket_sequence_indices.append(bucket_i_indices)
         
-    for i in xrange(len(self)):
+    for i in six.moves.range(len(self)):
       if i not in unique_bucket_indices:
         bucket_i_indices = len(bucket_indices)+i
         bucket_i_sequence_indices = np.array([0], dtype=np.int32)

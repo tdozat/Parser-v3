@@ -18,6 +18,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+import six
 
 import os
 import codecs
@@ -53,21 +54,21 @@ class SubtokenVocab(CountVocab):
     embed_keep_prob = embed_keep_prob or self.embed_keep_prob
     conv_keep_prob = 1. if reuse else self.conv_keep_prob
     recur_keep_prob = 1. if reuse else self.recur_keep_prob
-    linear_keep_prob = 1. if reuse else self.linear_keep_prob
+    output_keep_prob = 1. if reuse else self.output_keep_prob
     
     layers = []
-    with tf.variable_scope(variable_scope or self.field) as scope:
+    with tf.variable_scope(variable_scope or self.classname) as scope:
       for i, placeholder in enumerate(self._multibucket.get_placeholders()):
         if i:
           scope.reuse_variables()
         with tf.variable_scope('Embeddings'):
           layer = embeddings.token_embedding_lookup(len(self), self.embed_size,
                                                      placeholder,
-                                                     nonzero_init=nonzero_init,
+                                                     nonzero_init=True,
                                                      reuse=reuse)
         
-        seq_lengths = tf.count_nonzero(placeholder, axis=1)
-        for j in xrange(self.n_layers):
+        seq_lengths = tf.count_nonzero(placeholder, axis=1, dtype=tf.int32)
+        for j in six.moves.range(self.n_layers):
           conv_width = self.first_layer_conv_width if not j else self.conv_width
           with tf.variable_scope('RNN-{}'.format(j)):
             layer, final_states = recurrent.directed_RNN(
@@ -78,24 +79,37 @@ class SubtokenVocab(CountVocab):
               recur_func=self.recur_func,
               conv_keep_prob=conv_keep_prob,
               recur_keep_prob=recur_keep_prob,
-              drop_type=self.drop_type,
               cifg=self.cifg,
-              nog=self.nog)
+              highway=self.highway,
+              highway_func=self.highway_func,
+              bilin=self.bilin)
         
-        if self.squeeze_type == 'linear_attention':
+        
+        if not self.squeeze_type.startswith('gated'):
+          if self.squeeze_type == 'linear_attention':
+            with tf.variable_scope('Attention'):
+              _, layer = classifiers.linear_attention(layer, hidden_keep_prob=output_keep_prob)
+          elif self.squeeze_type == 'final_hidden':
+            layer, _ = tf.split(final_states, 2, axis=-1)
+          elif self.squeeze_type == 'final_cell':
+            _, layer = tf.split(final_states, 2, axis=-1)
+          elif self.squeeze_type == 'final_state':
+            layer = final_states
+          elif self.squeeze_type == 'reduce_max':
+            layer = tf.reduce_max(layer, axis=-2)
+          with tf.variable_scope('Linear'):
+            layer = classifiers.hidden(layer, self.output_size,
+                                       hidden_func=self.output_func,
+                                       hidden_keep_prob=output_keep_prob)
+        else:
           with tf.variable_scope('Attention'):
-            layer = classifiers.linear_attention(layer, hidden_keep_prob=linear_keep_prob)[1]
-        elif self.squeeze_type == 'final_hidden':
-          layer, _ = tf.split(final_states, 2, axis=-1)
-        elif self.squeeze_type == 'final_cell':
-          _, layer = tf.split(final_states, 2, axis=-1)
-        elif self.squeeze_type == 'final_state':
-          layer = final_states
-          
-        with tf.variable_scope('Linear'):
-          layer = classifiers.hidden(layer, self.linear_size,
-                                     hidden_func=tf.identity,
-                                     hidden_keep_prob=linear_keep_prob)
+            attn, layer = classifiers.deep_linear_attention(layer, self.output_size,
+                                       hidden_func=nonlin.identity,
+                                       hidden_keep_prob=output_keep_prob)
+          if self.squeeze_type == 'gated_reduce_max':
+            layer = tf.nn.relu(tf.reduce_max(layer, axis=-2)) + .1*tf.reduce_sum(layer, axis=-2)/(tf.count_nonzero(layer, axis=-2, dtype=tf.float32)+1e-12)
+          elif self.squeeze_type == 'gated_reduce_sum':
+            layer = self.output_func(tf.reduce_sum(layer, axis=-2))
         layers.append(layer)
       # Concatenate all the buckets' embeddings
       layer = tf.concat(layers, 0)
@@ -162,7 +176,7 @@ class SubtokenVocab(CountVocab):
     unique_indices, inverse_indices = np.unique(indices, return_inverse=True)
     feed_dict[self.placeholder] = inverse_indices.reshape(indices.shape)
     self._multibucket.set_placeholders(unique_indices, feed_dict=feed_dict)
-    return
+    return feed_dict
     
   #=============================================================
   def open(self):
@@ -206,8 +220,8 @@ class SubtokenVocab(CountVocab):
   def linear_keep_prob(self):
     return self._config.getfloat(self, 'linear_keep_prob')
   @property
-  def hidden_keep_prob(self):
-    return self._config.getfloat(self, 'hidden_keep_prob')
+  def output_keep_prob(self):
+    return self._config.getfloat(self, 'output_keep_prob')
   @property
   def n_layers(self):
     return self._config.getint(self, 'n_layers')
@@ -224,8 +238,8 @@ class SubtokenVocab(CountVocab):
   def recur_size(self):
     return self._config.getint(self, 'recur_size')
   @property
-  def linear_size(self):
-    return self._config.getint(self, 'linear_size')
+  def output_size(self):
+    return self._config.getint(self, 'output_size')
   @property
   def hidden_size(self):
     return self._config.getint(self, 'hidden_size')
@@ -247,6 +261,20 @@ class SubtokenVocab(CountVocab):
     else:
       raise AttributeError("module '{}' has no attribute '{}'".format(nonlin.__name__, recur_func))
   @property
+  def highway_func(self):
+    highway_func = self._config.getstr(self, 'highway_func')
+    if hasattr(nonlin, highway_func):
+      return getattr(nonlin, highway_func)
+    else:
+      raise AttributeError("module '{}' has no attribute '{}'".format(nonlin.__name__, highway_func))
+  @property
+  def output_func(self):
+    output_func = self._config.getstr(self, 'output_func')
+    if hasattr(nonlin, output_func):
+      return getattr(nonlin, output_func)
+    else:
+      raise AttributeError("module '{}' has no attribute '{}'".format(nonlin.__name__, output_func))
+  @property
   def recur_cell(self):
     recur_cell = self._config.getstr(self, 'recur_cell')
     if hasattr(recurrent, recur_cell):
@@ -257,11 +285,14 @@ class SubtokenVocab(CountVocab):
   def drop_type(self):
     return self._config.getstr(self, 'drop_type')
   @property
+  def bilin(self):
+    return self._config.getboolean(self, 'bilin')
+  @property
   def cifg(self):
     return self._config.getboolean(self, 'cifg')
   @property
-  def nog(self):
-    return self._config.getboolean(self, 'nog')
+  def highway(self):
+    return self._config.getboolean(self, 'highway')
   @property
   def squeeze_type(self):
     return self._config.getstr(self, 'squeeze_type')

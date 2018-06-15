@@ -160,8 +160,6 @@ class CoNLLUDataset(set):
     for vocab in self:
       data = self._multibucket.get_data(vocab.classname, indices)
       feed_dict = vocab.set_placeholders(data, feed_dict=feed_dict)
-    #with open('debug.log', 'w') as f:
-    #  f.write('{}'.format(feed_dict))
     return feed_dict
   
   ##=============================================================
@@ -225,6 +223,9 @@ class CoNLLUDataset(set):
   @property
   def batch_size(self):
     return self._config.getint(self, 'batch_size')
+  @property
+  def classname(self):
+    return self.__class__.__name__
   
   #=============================================================
   def __enter__(self):
