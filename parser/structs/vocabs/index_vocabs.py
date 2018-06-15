@@ -78,7 +78,7 @@ class IndexVocab(BaseVocab):
   def get_bilinear_classifier(self, layer, token_weights, variable_scope=None, reuse=False):
     """"""
     
-    layer1 = layer2 = layer
+    recur_layer = layer1 = layer2 = layer
     lin_layer1 = lin_layer2 = layer
     hidden_keep_prob = 1 if reuse else self.hidden_keep_prob
     hidden_func = self.hidden_func
@@ -222,6 +222,7 @@ class IndexVocab(BaseVocab):
     #-----------------------------------------------------------
     # Populate the output dictionary
     outputs = {}
+    outputs['recur_layer'] = recur_layer
     outputs['unlabeled_targets'] = self.placeholder
     outputs['probabilities'] = probabilities
     outputs['unlabeled_loss'] = loss

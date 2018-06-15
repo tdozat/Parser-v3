@@ -40,54 +40,63 @@ class BaseNetwork(object):
   
   _prefix_root = None
   _postfix_root = None
+  _evals = None
   
   #=============================================================
-  def __init__(self, id_vocab=None, input_vocabs=None, output_vocabs=None, extra_vocabs=None, config=None):
+  def __init__(self, input_networks=set(), config=None):
     """"""
     
     self._config = config
-    
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-    if id_vocab is None:
-      self._id_vocab = vocabs.IDIndexVocab(config=config)
-    else:
-      self._id_vocab = id_vocab
     
-    if input_vocabs is None:
-      input_vocabs = config.getlist(self, 'input_vocabs')
-      self._input_vocabs = set()
-      for input_vocab in input_vocabs:
-        VocabClass = getattr(vocabs, input_vocab)
+    self._input_networks = input_networks
+    assert self._input_networks == set(config.getlist(self, 'input_networks')), 'Not all input networks were passed in to {}'.format(self.classname)
+    
+    extant_vocabs = {}
+    for input_network in self.input_networks:
+      for vocab in input_network.vocabs:
+        if vocab.classname in vocabs:
+          assert vocab is extant_vocabs[vocab.classname], "Two input networks have different instances of {}".format(vocab.classname)
+        else:
+          extant_vocabs[vocab.classname] = vocab
+    
+    if 'IDIndexVocab' in extant_vocabs:
+      self._id_vocab = extant_vocabs['IDIndexVocab']
+    else:
+      self._id_vocab = vocabs.IDIndexVocab(config=config)
+      
+    self._input_vocabs = set()
+    for input_vocab_classname in config.getlist(self, 'input_vocabs'):
+      if input_vocab_classname in extant_vocabs:
+        self._input_vocabs.add(extant_vocabs[input_vocab_classname])
+      else:
+        VocabClass = getattr(vocabs, input_vocab_classname)
         vocab = VocabClass(config=config)
         vocab.load() or vocab.count(self.train_conllus)
         self._input_vocabs.add(vocab)
-    else:
-      self._input_vocabs = input_vocabs
     
-    if output_vocabs is None:
-      output_vocabs = config.getlist(self, 'output_vocabs')
-      self._output_vocabs = set()
-      for output_vocab in output_vocabs:
-        VocabClass = getattr(vocabs, output_vocab)
+    self._output_vocabs = set()
+    for output_vocab_classname in config.getlist(self, 'output_vocabs'):
+      if output_vocab_classname in extant_vocabs:
+        self._output_vocabs.add(extant_vocabs[output_vocab_classname])
+      else:
+        VocabClass = getattr(vocabs, output_vocab_classname)
         vocab = VocabClass(config=config)
         vocab.load() or vocab.count(self.train_conllus)
         self._output_vocabs.add(vocab)
-    else:
-      self._output_vocabs = output_vocabs
     
-    if extra_vocabs is None:
-      extra_vocabs = config.getlist(self, 'extra_vocabs')
-      self._extra_vocabs = set()
-      for extra_vocab in extra_vocabs:
-        VocabClass = getattr(vocabs, extra_vocab)
+    self._throughput_vocabs = set()
+    for throughput_vocab_classname in config.getlist(self, 'throughput_vocabs'):
+      if throughput_vocab_classname in extant_vocabs:
+        self._throughput_vocabs.add(extant_vocabs[throughput_vocab_classname])
+      else:
+        VocabClass = getattr(vocabs, throughput_vocab_classname)
         vocab = VocabClass(config=config)
         vocab.load() or vocab.count(self.train_conllus)
-        self._extra_vocabs.add(vocab)
-    else:
-      self._extra_vocabs = extra_vocabs
+        self._throughput_vocabs.add(vocab)
     
     self.global_step = tf.Variable(0., trainable=False, name='Global_step')
-    self._vocabs = {self._id_vocab} | self._input_vocabs | self._extra_vocabs | self._output_vocabs
+    self._vocabs = {self.id_vocab} | self.input_vocabs | self.output_vocabs | self._throughput_vocabs | extant_vocabs
     return
   
   #=============================================================
@@ -115,10 +124,16 @@ class BaseNetwork(object):
         factored_deptree = vocab.factorized
       elif vocab.field == 'semrel':
         factored_semgraph = vocab.factorized
-    with tf.variable_scope('Network', reuse=False):
-      train_outputs = TrainOutputs(*self.build_graph(reuse=False), load=load, factored_deptree=factored_deptree, factored_semgraph=factored_semgraph, config=self._config)
-    with tf.variable_scope('Network', reuse=True):
-      dev_outputs = DevOutputs(*self.build_graph(reuse=True), load=load, factored_deptree=factored_deptree, factored_semgraph=factored_semgraph, config=self._config)
+    input_network_tensors = {}
+    for input_network in self.input_networks:
+      with tf.variable_scope(input_network.classname, reuse=True):
+        input_network_outputs[input_network.classname] = input_network.build_graph(reuse=True)[0]
+    with tf.variable_scope(self.classname, reuse=False):
+      train_graph = self.build_graph(input_network_outputs=input_network_outputs, reuse=False)
+      train_outputs = TrainOutputs(*train_graph, load=load, evals=self._evals, factored_deptree=factored_deptree, factored_semgraph=factored_semgraph, config=self._config)
+    with tf.variable_scope(self.classname, reuse=True):
+      dev_graph = self.build_graph(input_network_outputs=input_network_outputs, reuse=True)
+      dev_outputs = DevOutputs(*dev_graph, load=load, evals=self._evals, factored_deptree=factored_deptree, factored_semgraph=factored_semgraph, config=self._config)
     regularization_loss = self.l2_reg * tf.losses.get_regularization_loss() if self.l2_reg else 0
     
     update_step = tf.assign_add(self.global_step, 1)
@@ -266,15 +281,7 @@ class BaseNetwork(object):
         probabilities = sess.run(probability_tensors, feed_dict=feed_dict)
         predictions = graph_outputs.probs_to_preds(probabilities)
         tokens = dataset.get_tokens(indices)
-        try:
-          tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
-        except:
-          with open('debug.log', 'w') as f:
-            f.write('{}\n'.format(list(predictions.keys())))
-        #------------------------------------
-        # TODO delete this
-        #tokens.update(dataset.preds_to_toks(predictions))
-        #------------------------------------
+        tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
         graph_outputs.cache_predictions(tokens, indices)
       
       input_dir, basename = os.path.split(input_filename)
@@ -328,6 +335,21 @@ class BaseNetwork(object):
     return
   
   #=============================================================
+  def get_input_tensor(self, outputs, reuse=True):
+    """"""
+    
+    output_keep_prob = 1. if reuse else self.output_keep_prob
+    for output in outputs:
+      pass # we just need to grab one
+    layer = output['recur_layer']
+    with tf.variable_scope(self.classname):
+      layer = classifiers.hiddens(layer, self.output_size,
+                                  hidden_func=self.output_func,
+                                  hidden_keep_prob=output_keep_prob,
+                                  reuse=reuse)
+    return [layer]
+  
+  #=============================================================
   @property
   def train_conllus(self):
     return self._config.getfiles(self, 'train_conllus')
@@ -353,11 +375,17 @@ class BaseNetwork(object):
   def input_vocabs(self):
     return self._input_vocabs
   @property
+  def throughput_vocabs(self):
+    return self._throughput_vocabs
+  @property
   def output_vocabs(self):
     return self._output_vocabs
   @property
   def l2_reg(self):
     return self._config.getfloat(self, 'l2_reg')
+  @property
+  def input_size(self):
+    return self._config.getint(self, 'input_size')
   @property
   def recur_size(self):
     return self._config.getint(self, 'recur_size')
@@ -371,6 +399,9 @@ class BaseNetwork(object):
   def conv_width(self):
     return self._config.getint(self, 'conv_width')
   @property
+  def input_keep_prob(self):
+    return self._config.getfloat(self, 'input_keep_prob')
+  @property
   def conv_keep_prob(self):
     return self._config.getfloat(self, 'conv_keep_prob')
   @property
@@ -382,6 +413,13 @@ class BaseNetwork(object):
   @property
   def bidirectional(self):
     return self._config.getboolean(self, 'bidirectional')
+  @property
+  def input_func(self):
+    input_func = self._config.getstr(self, 'input_func')
+    if hasattr(nonlin, input_func):
+      return getattr(nonlin, input_func)
+    else:
+      raise AttributeError("module '{}' has no attribute '{}'".format(nonlin.__name__, input_func))
   @property
   def hidden_func(self):
     hidden_func = self._config.getstr(self, 'hidden_func')

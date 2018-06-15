@@ -49,7 +49,7 @@ class TokenVocab(CountVocab):
     
     embed_keep_prob = 1 if reuse else (embed_keep_prob or self.embed_keep_prob)
     
-    with tf.variable_scope(variable_scope or self.field):
+    with tf.variable_scope(variable_scope or self.classname):
       layer = embeddings.token_embedding_lookup(len(self), self.embed_size,
                                         self.placeholder,
                                         nonzero_init=nonzero_init,
@@ -59,11 +59,27 @@ class TokenVocab(CountVocab):
     return layer
   
   #=============================================================
+  # TODO confusion matrix
+  def get_output_tensor(self, predictions, reuse=True):
+    """"""
+    
+    embed_keep_prob = 1 if reuse else self.embed_keep_prob
+    
+    with tf.variable_scope(self.classname):
+      layer = embeddings.token_embedding_lookup(len(self), self.embed_size,
+                                        predictions,
+                                        reuse=reuse)
+      if embed_keep_prob < 1:
+        layer = self.drop_func(layer, embed_keep_prob)
+    return layer
+  
+  #=============================================================
   def get_linear_classifier(self, layer, token_weights, variable_scope=None, reuse=False):
     """"""
     
+    recur_layer = layer
     hidden_keep_prob = 1 if reuse else self.hidden_keep_prob
-    with tf.variable_scope(variable_scope or self.field):
+    with tf.variable_scope(variable_scope or self.classname):
       for i in six.moves.range(0, self.n_layers):
         with tf.variable_scope('FC-%d' % i):
           layer = classifiers.hidden(layer, self.hidden_size,
@@ -96,6 +112,7 @@ class TokenVocab(CountVocab):
     #-----------------------------------------------------------
     # Populate the output dictionary
     outputs = {}
+    outputs['recur_layer'] = recur_layer
     outputs['targets'] = targets
     outputs['probabilities'] = probabilities
     outputs['loss'] = loss
@@ -114,7 +131,7 @@ class TokenVocab(CountVocab):
     hidden_func = self.hidden_func
     hidden_size = self.hidden_size
     add_linear = self.add_linear
-    with tf.variable_scope(variable_scope or self.field):
+    with tf.variable_scope(variable_scope or self.classname):
       for i in six.moves.range(0, self.n_layers-1):
         with tf.variable_scope('FC-%d' % i):
           layer = classifiers.hidden(layer, 2*hidden_size,
@@ -213,12 +230,12 @@ class TokenVocab(CountVocab):
   def get_unfactored_bilinear_classifier(self, layer, unlabeled_targets, token_weights, variable_scope=None, reuse=False):
     """"""
     
-    layer1 = layer2 = layer
+    recur_layer = layer
     hidden_keep_prob = 1 if reuse else self.hidden_keep_prob
     hidden_func = self.hidden_func
     hidden_size = self.hidden_size
     add_linear = self.add_linear
-    with tf.variable_scope(variable_scope or self.field):
+    with tf.variable_scope(variable_scope or self.classname):
       for i in six.moves.range(0, self.n_layers-1):
         with tf.variable_scope('FC-%d' % i):
           layer = classifiers.hidden(layer, 2*hidden_size,
@@ -287,6 +304,7 @@ class TokenVocab(CountVocab):
     #-----------------------------------------------------------
     # Populate the output dictionary
     outputs = {}
+    outputs['recur_layer'] = recur_layer
     outputs['unlabeled_targets'] = unlabeled_targets
     outputs['probabilities'] = probabilities
     outputs['unlabeled_loss'] = tf.constant(0.)
@@ -389,10 +407,10 @@ class GraphTokenVocab(TokenVocab):
   def get_bilinear_discriminator(self, layer, token_weights, variable_scope=None, reuse=False):
     """"""
     
-    layer1 = layer2 = layer
+    recur_layer = layer1 = layer2 = layer
     hidden_keep_prob = 1 if reuse else self.hidden_keep_prob
     add_linear = self.add_linear
-    with tf.variable_scope(variable_scope or self.field):
+    with tf.variable_scope(variable_scope or self.classname):
       for i in six.moves.range(0, self.n_layers):
         with tf.variable_scope('FC1-%d' % i):
           layer1 = classifiers.hidden(layer1, self.hidden_size,
@@ -448,6 +466,7 @@ class GraphTokenVocab(TokenVocab):
     #-----------------------------------------------------------
     # Populate the output dictionary
     outputs = {}
+    outputs['recur_layer'] = recur_layer
     outputs['unlabeled_targets'] = unlabeled_targets
     outputs['probabilities'] = probabilities
     outputs['unlabeled_loss'] = loss
@@ -469,7 +488,7 @@ class GraphTokenVocab(TokenVocab):
   def get_factored_bilinear_classifier(self, layer, outputs, token_weights, variable_scope=None, reuse=False):
     """"""
     
-    layer1 = layer2 = layer
+    recur_layer = layer1 = layer2 = layer
     hidden_keep_prob = 1 if reuse else self.hidden_keep_prob
     add_linear = self.add_linear
     with tf.variable_scope(variable_scope or self.field):
@@ -558,7 +577,7 @@ class GraphTokenVocab(TokenVocab):
   def get_unfactored_bilinear_classifier(self, layer, token_weights, variable_scope=None, reuse=False):
     """"""
     
-    layer1 = layer2 = layer
+    recur_layer = layer1 = layer2 = layer
     hidden_keep_prob = 1 if reuse else self.hidden_keep_prob
     add_linear = self.add_linear
     with tf.variable_scope(variable_scope or self.field):
@@ -631,6 +650,8 @@ class GraphTokenVocab(TokenVocab):
     #-----------------------------------------------------------
     # Populate the output dictionary
     outputs = {}
+    outputs['recur_layer'] = recur_layer
+    outputs['embeddings'] = 
     outputs['unlabeled_targets'] = unlabeled_targets
     outputs['label_targets'] = self.placeholder
     outputs['probabilities'] = probabilities

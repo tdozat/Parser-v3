@@ -38,14 +38,18 @@ class ElmoNetwork(BaseNetwork):
   
   _prefix_root = False
   _postfix_root = False
+  _evals = ['form']
   
   #=============================================================
-  # TODO make this optionally bidirectional
-  def build_graph(self, reuse=True):
+  def build_graph(self, input_network_outputs={}, reuse=True):
     """"""
     
+    outputs = {}
     with tf.variable_scope('Embeddings'):
       input_tensors = [input_vocab.get_input_tensor(reuse=reuse) for input_vocab in self.input_vocabs]
+      for input_network, output in input_network_outputs:
+        with tf.variable_scope(input_network.classname):
+          input_tensors.append(input_network.get_input_tensor(output, reuse=reuse))
       layer = tf.concat(input_tensors, 2)
     n_nonzero = tf.to_float(tf.count_nonzero(layer, axis=-1, keep_dims=True))
     batch_size, bucket_size, input_size = nn.get_sizes(layer)
@@ -61,7 +65,6 @@ class ElmoNetwork(BaseNetwork):
               'token_weights': token_weights,
               'n_sequences': n_sequences}
     
-    # NOTE <ROOT> = <S>, </S>
     conv_keep_prob = 1. if reuse else self.conv_keep_prob
     recur_keep_prob = 1. if reuse else self.recur_keep_prob
     recur_include_prob = 1. if reuse else self.recur_include_prob
@@ -122,6 +125,18 @@ class ElmoNetwork(BaseNetwork):
     with tf.variable_scope('Classifiers'):
       if 'form' in output_vocabs:
         vocab = output_vocabs['form']
+        outputs[vocab.field] = vocab.get_linear_classifier(
+          layer,
+          token_weights=token_weights,
+          reuse=reuse)
+      if 'upos' in output_vocabs:
+        vocab = output_vocabs['upos']
+        outputs[vocab.field] = vocab.get_linear_classifier(
+          layer,
+          token_weights=token_weights,
+          reuse=reuse)
+      if 'xpos' in output_vocabs:
+        vocab = output_vocabs['xpos']
         outputs[vocab.field] = vocab.get_linear_classifier(
           layer,
           token_weights=token_weights,

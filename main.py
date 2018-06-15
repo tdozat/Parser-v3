@@ -35,13 +35,13 @@ from hpo import MVGHPO
 from hpo.evals.syndep_eval import evaluate_tokens
 
 #***************************************************************
-#===============================================================
 # Set up the argument parser
 def main():
   """ --section_name opt1=value1 opt2=value2 opt3=value3 """
   
   argparser = ArgumentParser('Network')
-  argparser.add_argument('--save_dir', required=True)
+  argparser.add_argument('--save_metadir')
+  argparser.add_argument('--save_dir')
   subparsers = argparser.add_subparsers()
   section_names = set()
   with codecs.open(os.path.join('config', 'defaults.cfg')) as f:
@@ -63,17 +63,40 @@ def main():
     
   # parse the arguments
   kwargs = vars(argparser.parse_args())
-  action = kwargs.pop('action')
-  save_dir = kwargs.pop('save_dir')
+  kwargs.pop('action')(**kwargs)
+  return
+
+#===============================================================
+# Train
+def train(**kwargs):
+  """"""
+  
+  # Get the special arguments
   rand_file = kwargs.pop('randomize')
+  load = kwargs.pop('load')
+  save_dir = kwargs.pop('save_dir')
+  save_metadir = kwargs.pop('save_metadir')
+  network_class = kwargs.pop('network_class')
+  config_file = kwargs.pop('config_file')
+  
   # Get the cl-defined options
   kwargs = {key: value for key, value in six.iteritems(kwargs) if value is not None}
   for section, values in six.iteritems(kwargs):
     if section in section_names:
       values = [value.split('=', 1) for value in values]
       kwargs[section] = {opt: value for opt, value in values}
+  if 'DEFAULT' not in kwargs:
+    kwargs['DEFAULT'] = {}
+    
+  # Figure out the save_directory
+  if save_metadir is not None:
+    kwargs['DEFAULT']['save_metadir'] = save_metadir
+  if save_dir is None:
+    save_dir = Config(**kwargs).get('DEFAULT', 'save_dir')
+  
   # Get the randomly generated options and possibly add them
   if rand_file is not None:
+    assert not load, "You can't load a random configuration!"
     #-------------------------------------------------------------
     for arg in kwargs['DEFAULT']:
       if arg.startswith('LANG'):
@@ -97,15 +120,8 @@ def main():
           if option not in kwargs[section]:
             kwargs[section][option] = value
     save_dir = os.path.join(save_dir, str(int(time.time()*100000)))
-  action(save_dir, **kwargs)
-  return
-
-#===============================================================
-# Train
-def train(save_dir, **kwargs):
-  """"""
   
-  load = kwargs.pop('load')
+  # If not loading, ask the user if they want to overwrite the directory
   if not load and os.path.isdir(save_dir):
     input_str = ''
     while input_str not in ('y', 'n', 'yes', 'no'):
@@ -116,18 +132,42 @@ def train(save_dir, **kwargs):
     else:
       shutil.rmtree(save_dir)
   
+  # If the save_dir wasn't overwritten, load its config_file
   if os.path.isdir(save_dir):
     config_file = os.path.join(save_dir, 'config.cfg')
   else:
-    os.mkdir(save_dir)
-    config_file = kwargs.pop('config_file', '')
+    os.mkdirs(save_dir)
   
-  if 'DEFAULT' not in kwargs:
-    kwargs['DEFAULT'] = {}
   kwargs['DEFAULT']['save_dir'] = save_dir
-  network_class = getattr(parser, kwargs.pop('network_class'))
   config = Config(config_file=config_file, **kwargs)
-  network = network_class(config=config)
+  #-------------------------------------------------------------
+  def resolve_network_dependencies(config, network_class, networks):
+    if network_class in networks:
+      return networks
+    network_list = config.get(network_class, input_networks)
+    if network_list in ('None', ''):
+      config_file = os.path.join(config.getstring(network_class + '_dir'), 'config.cfg')
+      _config = Config(config_file=config_file)
+      networks[network_class] = getattr(parser, network_class)(config=_config)
+      return networks
+    else:
+      network_list = network_list.split(':')
+      input_networks = set()
+      for _network_class in network_list:
+        config_file = os.path.join(config.getstring(_network_class + '_dir'), 'config.cfg')
+        _config = Config(config_file=config_file)
+        networks = resolve_network_dependencies(_config, _network_class, networks)
+        input_networks.add(networks[_network_class])
+      networks[network_class] = getattr(parser, network_class)(input_networks=input_networks, config=config)
+      return networks
+  #-------------------------------------------------------------
+  networks = resolve_network_dependencies(config, network_class, {})
+  network_list = config.get(network_class, input_networks)
+  if network_list in ('None', ''):
+    input_networks = set()
+  else:
+    input_networks = set(networks[input_network] for input_network in network_list.split(':'))
+  network = network_class(input_networks=input_networks, config=config)
   if not load:
     with open(os.path.join(save_dir, 'config.cfg'), 'w') as f:
       config.write(f)
