@@ -39,11 +39,14 @@ class TaggerNetwork(BaseNetwork):
   _postfix_root = False
   
   #=============================================================
-  def build_graph(self, reuse=True):
+  def build_graph(self, input_network_outputs={}, reuse=True):
     """"""
     
     with tf.variable_scope('Embeddings'):
       input_tensors = [input_vocab.get_input_tensor(reuse=reuse) for input_vocab in self.input_vocabs]
+      for input_network, output in input_network_outputs:
+        with tf.variable_scope(input_network.classname):
+          input_tensors.append(input_network.get_input_tensor(output, reuse=reuse))
       layer = tf.concat(input_tensors, 2)
     batch_size, bucket_size, input_size = nn.get_sizes(layer)
     n_nonzero = tf.to_float(tf.count_nonzero(layer, axis=-1, keep_dims=True))
@@ -88,24 +91,26 @@ class TaggerNetwork(BaseNetwork):
           layer,
           token_weights=token_weights,
           reuse=reuse)
+        self._evals.append('lemma')
       if 'upos' in output_vocabs:
         vocab = output_vocabs['upos']
         outputs[vocab.field] = vocab.get_linear_classifier(
           layer,
           token_weights=token_weights,
           reuse=reuse)
+        self._evals.append('upos')
       if 'xpos' in output_vocabs:
         vocab = output_vocabs['xpos']
         outputs[vocab.field] = vocab.get_linear_classifier(
           layer,
           token_weights=token_weights,
           reuse=reuse)
+        self._evals.append('xpos')
       if 'deprel' in output_vocabs:
         vocab = output_vocabs['deprel']
         outputs[vocab.field] = vocab.get_linear_classifier(
           layer,
           token_weights=token_weights,
           reuse=reuse)
-    
+        self._evals.append('deprel')
     return outputs, tokens
-  

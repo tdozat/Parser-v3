@@ -40,7 +40,7 @@ class BaseNetwork(object):
   
   _prefix_root = None
   _postfix_root = None
-  _evals = None
+  _evals = []
   
   #=============================================================
   def __init__(self, input_networks=set(), config=None):

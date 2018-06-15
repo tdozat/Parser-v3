@@ -38,7 +38,7 @@ class ElmoNetwork(BaseNetwork):
   
   _prefix_root = False
   _postfix_root = False
-  _evals = ['form']
+  _evals = []
   
   #=============================================================
   def build_graph(self, input_network_outputs={}, reuse=True):
@@ -129,17 +129,20 @@ class ElmoNetwork(BaseNetwork):
           layer,
           token_weights=token_weights,
           reuse=reuse)
+        self._evals.append('form')
       if 'upos' in output_vocabs:
         vocab = output_vocabs['upos']
         outputs[vocab.field] = vocab.get_linear_classifier(
           layer,
           token_weights=token_weights,
           reuse=reuse)
+        self._evals.append('upos')
       if 'xpos' in output_vocabs:
         vocab = output_vocabs['xpos']
         outputs[vocab.field] = vocab.get_linear_classifier(
           layer,
           token_weights=token_weights,
           reuse=reuse)
+        self._evals.append('xpos')
     return outputs, tokens
   
