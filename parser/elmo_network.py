@@ -129,20 +129,20 @@ class ElmoNetwork(BaseNetwork):
           layer,
           token_weights=token_weights,
           reuse=reuse)
-        self._evals.append('form')
+        self._evals.add('form')
       if 'upos' in output_vocabs:
         vocab = output_vocabs['upos']
         outputs[vocab.field] = vocab.get_linear_classifier(
           layer,
           token_weights=token_weights,
           reuse=reuse)
-        self._evals.append('upos')
+        self._evals.add('upos')
       if 'xpos' in output_vocabs:
         vocab = output_vocabs['xpos']
         outputs[vocab.field] = vocab.get_linear_classifier(
           layer,
           token_weights=token_weights,
           reuse=reuse)
-        self._evals.append('xpos')
+        self._evals.add('xpos')
     return outputs, tokens
   

@@ -34,12 +34,12 @@ class Config(SafeConfigParser, object):
   """"""
   
   #=============================================================
-  def __init__(self, config_file='', **kwargs):
+  def __init__(self, defaults_file=os.path.join('config', 'defaults.cfg'), config_file='', **kwargs):
     """"""
     
     #super(Config, self).__init__(defaults=kwargs.pop('DEFAULT', {}))
     super(Config, self).__init__()
-    self.read([os.path.join('config', 'defaults.cfg'), config_file])
+    self.read([defaults_file, config_file])
     for section, options in six.iteritems(kwargs):
       if section != 'DEFAULT' and not self.has_section(section):
         self.add_section(section)

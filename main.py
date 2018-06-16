@@ -42,6 +42,25 @@ with codecs.open(os.path.join('config', 'defaults.cfg')) as f:
     if match:
       section_names.add(match.group(1))
 
+#-------------------------------------------------------------
+def resolve_network_dependencies(config, network_class, network_list, networks):
+  if network_list in ('None', ''):
+    return set(), networks
+  else:
+    network_list = network_list.split(':')
+    if network_class not in networks:
+      for _network_class in network_list:
+        config_file = os.path.join(config.get('DEFAULT', _network_class + '_dir'), 'config.cfg')
+        _config = Config(config_file=config_file)
+        _network_list = _config.get(_network_class, 'input_network_classes')
+        input_networks, networks = resolve_network_dependencies(_config, _network_class, _network_list, networks)
+        NetworkClass = getattr(parser, _network_class)
+        networks[_network_class] = NetworkClass(input_networks=input_networks, config=config)
+    return set(networks[_network_class] for _network_class in network_list), networks
+#-------------------------------------------------------------
+
+# TODO split train into "train" and "search"
+# TODO make all DEFAULT options as regular flags
 #***************************************************************
 # Set up the argument parser
 def main():
@@ -61,6 +80,13 @@ def main():
   train_parser.add_argument('--randomize', nargs='?', const='hpo/config/default.csv')
   for section_name in section_names:
     train_parser.add_argument('--'+section_name, nargs='+')
+
+  # set up the inference parser
+  run_parser = subparsers.add_parser('run')
+  run_parser.set_defaults(action=run)
+  run_parser.add_argument('conllu_files', nargs='+')
+  run_parser.add_argument('--output_dir')
+  run_parser.add_argument('--output_filename')
     
   # parse the arguments
   kwargs = vars(argparser.parse_args())
@@ -87,7 +113,7 @@ def train(**kwargs):
       values = [value.split('=', 1) for value in values]
       kwargs[section] = {opt: value for opt, value in values}
   if 'DEFAULT' not in kwargs:
-    kwargs['DEFAULT'] = {}
+    kwargs['DEFAULT'] = {'network_class': network_class}
     
   # Figure out the save_directory
   if save_metadir is not None:
@@ -145,26 +171,42 @@ def train(**kwargs):
   if not load:
     with open(os.path.join(save_dir, 'config.cfg'), 'w') as f:
       config.write(f)
-  #-------------------------------------------------------------
-  def resolve_network_dependencies(config, network_class, network_list, networks):
-    if network_list in ('None', ''):
-      return set(), networks
-    else:
-      network_list = network_list.split(':')
-      if network_class not in networks:
-        for _network_class in network_list:
-          config_file = os.path.join(config.get('DEFAULT', _network_class + '_dir'), 'config.cfg')
-          _config = Config(config_file=config_file)
-          _network_list = _config.get(_network_class, 'input_network_classes')
-          input_networks, networks = resolve_network_dependencies(_config, _network_class, _network_list, networks)
-          NetworkClass = getattr(parser, _network_class)
-          networks[network_class] = NetworkClass(input_networks=input_networks, config=config)
-      return set(networks[_network_class] for _network_class in network_list), networks
-  #-------------------------------------------------------------
   input_networks, networks = resolve_network_dependencies(config, network_class, network_list, {})
   NetworkClass = getattr(parser, network_class)
   network = NetworkClass(input_networks=input_networks, config=config)
   network.train(load=load)
+  return
+
+#===============================================================
+def run(**kwargs):
+  """"""
+
+  # Get the special arguments
+  save_dir = kwargs.pop('save_dir')
+  save_metadir = kwargs.pop('save_metadir')
+  conllu_files = kwargs.pop('conllu_files')
+  output_dir = kwargs.pop('output_dir')
+  output_filename = kwargs.pop('output_filename')
+
+  # Get the cl-defined options
+  if 'DEFAULT' not in kwargs:
+    kwargs['DEFAULT'] = {}
+    
+  # Figure out the save_directory
+  if save_metadir is not None:
+    kwargs['DEFAULT']['save_metadir'] = save_metadir
+  if save_dir is None:
+    save_dir = Config(**kwargs).get('DEFAULT', 'save_dir')
+  config_file = os.path.join(save_dir, 'config.cfg')
+  kwargs['DEFAULT']['save_dir'] = save_dir
+
+  config = Config(defaults_file='', config_file=config_file, **kwargs)
+  network_class = config.get('DEFAULT', 'network_class')
+  network_list = config.get(network_class, 'input_network_classes')
+  input_networks, networks = resolve_network_dependencies(config, network_class, network_list, {})
+  NetworkClass = getattr(parser, network_class)
+  network = NetworkClass(input_networks=input_networks, config=config)
+  network.parse(conllu_files, output_dir=output_dir, output_filename=output_filename)
   return
 
 #***************************************************************

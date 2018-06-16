@@ -111,12 +111,14 @@ class ParserNetwork(BaseNetwork):
             token_weights=token_weights,
             reuse=reuse)
         outputs['deptree'] = labeled_outputs
+        self._evals.add('deptree')
       elif 'dephead' in output_vocabs:
         vocab = output_fields['dephead']
         outputs[vocab.classname] = vocab.get_bilinear_classifier(
           layer,
           token_weights=token_weights,
           reuse=reuse)
+        self._evals.add('dephead')
     
     return outputs, tokens
   

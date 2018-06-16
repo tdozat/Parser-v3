@@ -18,6 +18,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+import six
 
 import re
 import os
@@ -64,8 +65,9 @@ class TaggerNetwork(BaseNetwork):
     
     conv_keep_prob = 1. if reuse else self.conv_keep_prob
     recur_keep_prob = 1. if reuse else self.recur_keep_prob
+    recur_include_prob = 1. if reuse else self.recur_include_prob
     
-    for i in xrange(self.n_layers):
+    for i in six.moves.range(self.n_layers):
       conv_width = self.first_layer_conv_width if not i else self.conv_width
       with tf.variable_scope('RNN-{}'.format(i)):
         layer, _ = recurrent.directed_RNN(layer, self.recur_size, seq_lengths,
@@ -75,7 +77,7 @@ class TaggerNetwork(BaseNetwork):
                                           recur_func=self.recur_func,
                                           conv_keep_prob=conv_keep_prob,
                                           recur_keep_prob=recur_keep_prob,
-                                          drop_type=self.drop_type,
+                                          recur_include_prob=recur_include_prob,
                                           cifg=self.cifg,
                                           highway=self.highway,
                                           highway_func=self.highway_func,
@@ -91,26 +93,26 @@ class TaggerNetwork(BaseNetwork):
           layer,
           token_weights=token_weights,
           reuse=reuse)
-        self._evals.append('lemma')
+        self._evals.add('lemma')
       if 'upos' in output_vocabs:
         vocab = output_vocabs['upos']
         outputs[vocab.field] = vocab.get_linear_classifier(
           layer,
           token_weights=token_weights,
           reuse=reuse)
-        self._evals.append('upos')
+        self._evals.add('upos')
       if 'xpos' in output_vocabs:
         vocab = output_vocabs['xpos']
         outputs[vocab.field] = vocab.get_linear_classifier(
           layer,
           token_weights=token_weights,
           reuse=reuse)
-        self._evals.append('xpos')
+        self._evals.add('xpos')
       if 'deprel' in output_vocabs:
         vocab = output_vocabs['deprel']
         outputs[vocab.field] = vocab.get_linear_classifier(
           layer,
           token_weights=token_weights,
           reuse=reuse)
-        self._evals.append('deprel')
+        self._evals.add('deprel')
     return outputs, tokens

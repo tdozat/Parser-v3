@@ -62,7 +62,8 @@ class GraphOutputs(object):
     self._evals = evals or list(outputs.keys())
     #self._evals = config.getlist(self, 'evals')
     valid_evals = set([print_map[0] for print_map in self._print_mapping])
-    for eval_ in self._evals:
+    
+    for eval_ in list(self._evals):
       assert eval_ in valid_evals
     self._loss = tf.add_n([tf.where(tf.is_finite(output['loss']), output['loss'], 0.) for output in outputs.values()])
     self._accuracies = {'total': tokens}
