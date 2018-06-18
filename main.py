@@ -84,6 +84,7 @@ def main():
   # set up the inference parser
   run_parser = subparsers.add_parser('run')
   run_parser.set_defaults(action=run)
+  run_parser.add_argument('network_class')
   run_parser.add_argument('conllu_files', nargs='+')
   run_parser.add_argument('--output_dir')
   run_parser.add_argument('--output_filename')
@@ -113,7 +114,8 @@ def train(**kwargs):
       values = [value.split('=', 1) for value in values]
       kwargs[section] = {opt: value for opt, value in values}
   if 'DEFAULT' not in kwargs:
-    kwargs['DEFAULT'] = {'network_class': network_class}
+    kwargs['DEFAULT'] = {}
+  kwargs['DEFAULT'] = {'network_class': network_class}
     
   # Figure out the save_directory
   if save_metadir is not None:
@@ -184,6 +186,7 @@ def run(**kwargs):
   # Get the special arguments
   save_dir = kwargs.pop('save_dir')
   save_metadir = kwargs.pop('save_metadir')
+  network_class = kwargs.pop('network_class')
   conllu_files = kwargs.pop('conllu_files')
   output_dir = kwargs.pop('output_dir')
   output_filename = kwargs.pop('output_filename')
@@ -201,7 +204,7 @@ def run(**kwargs):
   kwargs['DEFAULT']['save_dir'] = save_dir
 
   config = Config(defaults_file='', config_file=config_file, **kwargs)
-  network_class = config.get('DEFAULT', 'network_class')
+  #network_class = config.get('DEFAULT', 'network_class')
   network_list = config.get(network_class, 'input_network_classes')
   input_networks, networks = resolve_network_dependencies(config, network_class, network_list, {})
   NetworkClass = getattr(parser, network_class)

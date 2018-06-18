@@ -279,13 +279,43 @@ class BaseNetwork(object):
       curses.wrapper(run)
       
       with open(os.path.join(self.save_dir, 'scores.txt'), 'wb') as f:
-        f.write(b'\n'.join(screen_output))
-      print(b'\n'.join(screen_output))
+        f.write(b'\n'.join(screen_output).decode('utf-8'))
+      print(b'\n'.join(screen_output).decode('utf-8'))
       
     return
   
   #=============================================================
-  def parse_dataset(self, dataset, graph_outputs, sess, output_dir=None, output_filename=None):
+  def parse_file(self, dataset, graph_outputs, sess, output_dir=None, output_filename=None):
+    """"""
+
+    probability_tensors = graph_outputs.probabilities
+    filename = dataset.filenames[0]
+    graph_outputs.restart_timer()
+    for indices in dataset.file_batch_iterator(0):
+      feed_dict = dataset.set_placeholders(indices)
+      probabilities = sess.run(probability_tensors, feed_dict=feed_dict)
+      predictions = graph_outputs.probs_to_preds(probabilities)
+      tokens = dataset.get_tokens(indices)
+      tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
+      graph_outputs.cache_predictions(tokens, indices)
+      
+      input_dir, input_filename = os.path.split(input_filename)
+      if output_dir is None:
+        output_dir = os.path.join(self.save_dir, 'parsed', input_dir)
+      elif output_filename is None:
+        output_filename = input_filename
+      
+      if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+      output_filename = os.path.join(output_dir, output_filename)
+      with codecs.open(output_filename, 'w', encoding='utf-8') as f:
+        graph_outputs.dump_current_predictions(f, prefix_root=self._prefix_root)
+    print('\033[92mParsing 1 file took {:0.1f} seconds\033[0m'.format(time.time() - graph_outputs.time))
+    return
+    
+    
+  #=============================================================
+  def parse_files(self, dataset, graph_outputs, sess, output_dir=None):
     """"""
     
     probability_tensors = graph_outputs.probabilities
@@ -301,17 +331,11 @@ class BaseNetwork(object):
         graph_outputs.cache_predictions(tokens, indices)
       
       input_dir, input_filename = os.path.split(input_filename)
-      if output_dir is None and output_filename is None:
-        output_dir = os.path.join(self.save_dir, 'parsed', input_dir)
-        output_filename = input_filename
-
-      elif output_dir is None:
-        output_dir = os.path.join(self.save_dir, 'parsed', input_dir)
-      elif output_filename is None:
-        output_filename = input_filename
-      if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-      output_filename = os.path.join(output_dir, output_filename)
+      if output_dir is None:
+        file_output_dir = os.path.join(self.save_dir, 'parsed', input_dir)
+      if not os.path.exists(file_output_dir):
+        os.makedirs(file_output_dir)
+      output_filename = os.path.join(file_output_dir, input_filename)
       with codecs.open(output_filename, 'w', encoding='utf-8') as f:
         graph_outputs.dump_current_predictions(f, prefix_root=self._prefix_root)
     print('\033[92mParsing {} file{} took {:0.1f} seconds\033[0m'.format(file_index+1, 's' if file_index else '', time.time() - graph_outputs.time))
@@ -349,7 +373,10 @@ class BaseNetwork(object):
     with tf.Session(config=config) as sess:
       sess.run(tf.global_variables_initializer())
       saver.restore(sess, tf.train.latest_checkpoint(self.save_dir))
-      self.parse_dataset(parseset, parse_outputs, sess, output_dir=output_dir, output_filename=output_filename)
+      if len(conllu_files) == 1 or output_filename is not None:
+        self.parse_file(parseset, parse_outputs, sess, output_dir=output_dir, output_filename=output_filename)
+      else:
+        self.parse_files(parseset, parse_outputs, sess, output_dir=output_dir)
     return
   
   #=============================================================

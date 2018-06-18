@@ -40,7 +40,7 @@ class ParserNetwork(BaseNetwork):
   _postfix_root = False
   
   #=============================================================
-  def build_graph(self, reuse=True):
+  def build_graph(self, input_network_outputs={}, reuse=True):
     """"""
     
     with tf.variable_scope('Embeddings'):
@@ -54,6 +54,9 @@ class ParserNetwork(BaseNetwork):
         input_tensors = non_pos_tensors + pos_tensors
       else:
         input_tensors = [input_vocab.get_input_tensor(reuse=reuse) for input_vocab in self.input_vocabs]
+      for input_network, output in input_network_outputs:
+        with tf.variable_scope(input_network.classname):
+          input_tensors.append(input_network.get_input_tensor(output, reuse=reuse))
       layer = tf.concat(input_tensors, 2)
     n_nonzero = tf.to_float(tf.count_nonzero(layer, axis=-1, keep_dims=True))
     batch_size, bucket_size, input_size = nn.get_sizes(layer)
