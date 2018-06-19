@@ -2,13 +2,13 @@
 # -*- coding: UTF-8 -*-
 
 # Copyright 2017 Timothy Dozat
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -31,29 +31,29 @@ import tensorflow as tf
 
 from parser.neural import nn, nonlin, embeddings, recurrent, classifiers
 from parser.graph_outputs import GraphOutputs, TrainOutputs, DevOutputs
-from parser.structs import conllu_dataset 
+from parser.structs import conllu_dataset
 from parser.structs import vocabs
 from parser.neural.optimizers import AdamOptimizer, AMSGradOptimizer
 
 #***************************************************************
 class BaseNetwork(object):
   """"""
-  
+
   _prefix_root = None
   _postfix_root = None
   _evals = set()
-  
+
   #=============================================================
   def __init__(self, input_networks=set(), config=None):
     """"""
-    
+
     self._config = config
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-    
+
     self._input_networks = input_networks
     input_network_classes = set(input_network.classname for input_network in self._input_networks)
     assert input_network_classes == set(self.input_network_classes), 'Not all input networks were passed in to {}'.format(self.classname)
-    
+
     extant_vocabs = {}
     for input_network in self.input_networks:
       for vocab in input_network.vocabs:
@@ -62,7 +62,7 @@ class BaseNetwork(object):
           assert vocab is extant_vocabs[vocab.classname], "Two input networks have different instances of {}".format(vocab.classname)
         else:
           extant_vocabs[vocab.classname] = vocab
-    
+
     if 'IDIndexVocab' in extant_vocabs:
       self._id_vocab = extant_vocabs['IDIndexVocab']
     else:
@@ -79,7 +79,7 @@ class BaseNetwork(object):
         vocab.load() or vocab.count(self.train_conllus)
         self._input_vocabs.add(vocab)
         extant_vocabs[input_vocab_classname] = vocab
-    
+
     self._output_vocabs = set()
     for output_vocab_classname in self.output_vocab_classes:
       if output_vocab_classname in extant_vocabs:
@@ -90,7 +90,7 @@ class BaseNetwork(object):
         vocab.load() or vocab.count(self.train_conllus)
         self._output_vocabs.add(vocab)
         extant_vocabs[output_vocab_classname] = vocab
-    
+
     self._throughput_vocabs = set()
     for throughput_vocab_classname in self.output_vocab_classes:
       if throughput_vocab_classname in extant_vocabs:
@@ -101,16 +101,16 @@ class BaseNetwork(object):
         vocab.load() or vocab.count(self.train_conllus)
         self._throughput_vocabs.add(vocab)
         extant_vocabs[throughput_vocab_classname] = vocab
-    
+
     with tf.variable_scope(self.classname, reuse=False):
       self.global_step = tf.Variable(0., trainable=False, name='Global_step')
     self._vocabs = set(extant_vocabs.values())
     return
-  
+
   #=============================================================
   def train(self, load=False):
     """"""
-    
+
     trainset = conllu_dataset.CoNLLUTrainset(self.vocabs,
                                              prefix_root=self.prefix_root,
                                              postfix_root=self.postfix_root,
@@ -123,7 +123,7 @@ class BaseNetwork(object):
                                            prefix_root=self.prefix_root,
                                            postfix_root=self.postfix_root,
                                            config=self._config)
-    
+
     factored_deptree = None
     factored_semgraph = None
     for vocab in self.output_vocabs:
@@ -150,7 +150,7 @@ class BaseNetwork(object):
       dev_graph = self.build_graph(input_network_outputs=input_network_outputs, reuse=True)
       dev_outputs = DevOutputs(*dev_graph, load=load, evals=self._evals, factored_deptree=factored_deptree, factored_semgraph=factored_semgraph, config=self._config)
     regularization_loss = self.l2_reg * tf.losses.get_regularization_loss() if self.l2_reg else 0
-    
+
     update_step = tf.assign_add(self.global_step, 1)
     adam = AdamOptimizer(config=self._config)
     adam_op = adam.minimize(train_outputs.loss + regularization_loss, variables=tf.trainable_variables(scope=self.classname)) # returns the current step
@@ -165,7 +165,7 @@ class BaseNetwork(object):
       non_save_variables = set(tf.get_collection('non_save_variables'))
       save_variables = all_variables - non_save_variables
       saver = tf.train.Saver(list(save_variables), max_to_keep=1)
-    
+
     screen_output = []
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
@@ -266,7 +266,7 @@ class BaseNetwork(object):
             pass
         except KeyboardInterrupt:
           pass
-        
+
         line = 0
         stdscr.move(line,0)
         instr = stdscr.instr().rstrip()
@@ -277,13 +277,13 @@ class BaseNetwork(object):
           instr = stdscr.instr().rstrip()
       #---------------------------------------------------------
       curses.wrapper(run)
-      
+
       with open(os.path.join(self.save_dir, 'scores.txt'), 'wb') as f:
         f.write(b'\n'.join(screen_output).decode('utf-8'))
       print(b'\n'.join(screen_output).decode('utf-8'))
-      
+
     return
-  
+
   #=============================================================
   def parse_file(self, dataset, graph_outputs, sess, output_dir=None, output_filename=None, print_time=False):
     """"""
@@ -298,7 +298,7 @@ class BaseNetwork(object):
       tokens = dataset.get_tokens(indices)
       tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
       graph_outputs.cache_predictions(tokens, indices)
-      
+
     input_dir, input_filename = os.path.split(input_filename)
     if output_dir is None:
       output_dir = os.path.join(self.save_dir, 'parsed', input_dir)
@@ -313,11 +313,10 @@ class BaseNetwork(object):
     if print_time:
       print('\033[92mParsing 1 file took {:0.1f} seconds\033[0m'.format(time.time() - graph_outputs.time))
     return
-    
   #=============================================================
   def parse_files(self, dataset, graph_outputs, sess, output_dir=None, print_time=False):
     """"""
-    
+
     probability_tensors = graph_outputs.probabilities
     input_filenames = dataset.filenames
     graph_outputs.restart_timer()
@@ -329,7 +328,7 @@ class BaseNetwork(object):
         tokens = dataset.get_tokens(indices)
         tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
         graph_outputs.cache_predictions(tokens, indices)
-      
+
       input_dir, input_filename = os.path.split(input_filename)
       if output_dir is None:
         file_output_dir = os.path.join(self.save_dir, 'parsed', input_dir)
@@ -352,7 +351,7 @@ class BaseNetwork(object):
                                             prefix_root=self.prefix_root,
                                             postfix_root=self.postfix_root,
                                             config=self._config)
-    
+
     if output_filename:
       assert len(conllu_files) == 1, "output_filename can only be specified for one input file"
     factored_deptree = None
@@ -369,7 +368,7 @@ class BaseNetwork(object):
     non_save_variables = set(tf.get_collection('non_save_variables'))
     save_variables = all_variables - non_save_variables
     saver = tf.train.Saver(list(save_variables), max_to_keep=1)
-    
+
     output_fields = {vocab.field: vocab for vocab in self.output_vocabs}
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
@@ -381,11 +380,11 @@ class BaseNetwork(object):
       else:
         self.parse_files(parseset, parse_outputs, sess, output_dir=output_dir)
     return
-  
+
   #=============================================================
   def get_input_tensor(self, outputs, reuse=True):
     """"""
-    
+
     output_keep_prob = 1. if reuse else self.output_keep_prob
     for output in outputs:
       pass # we just need to grab one
@@ -396,7 +395,7 @@ class BaseNetwork(object):
                                   hidden_keep_prob=output_keep_prob,
                                   reuse=reuse)
     return [layer]
-  
+
   #=============================================================
   @property
   def train_conllus(self):
