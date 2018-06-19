@@ -236,8 +236,8 @@ class BaseNetwork(object):
                   if self.save_model:
                     saver.save(sess, os.path.join(self.save_dir, 'ckpt'), global_step=self.global_step, write_meta_graph=False)
                   if self.parse_datasets:
-                    self.parse_dataset(devset, dev_outputs, sess)
-                    self.parse_dataset(testset, dev_outputs, sess)
+                    self.parse_files(devset, dev_outputs, sess)
+                    self.parse_files(testset, dev_outputs, sess)
                 else:
                   steps_since_best += self.print_every
                 current_epoch = sess.run(self.global_step)
@@ -285,11 +285,11 @@ class BaseNetwork(object):
     return
   
   #=============================================================
-  def parse_file(self, dataset, graph_outputs, sess, output_dir=None, output_filename=None):
+  def parse_file(self, dataset, graph_outputs, sess, output_dir=None, output_filename=None, print_time=False):
     """"""
 
     probability_tensors = graph_outputs.probabilities
-    filename = dataset.filenames[0]
+    input_filename = dataset.filenames[0]
     graph_outputs.restart_timer()
     for indices in dataset.file_batch_iterator(0):
       feed_dict = dataset.set_placeholders(indices)
@@ -299,29 +299,29 @@ class BaseNetwork(object):
       tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
       graph_outputs.cache_predictions(tokens, indices)
       
-      input_dir, input_filename = os.path.split(input_filename)
-      if output_dir is None:
-        output_dir = os.path.join(self.save_dir, 'parsed', input_dir)
-      elif output_filename is None:
-        output_filename = input_filename
-      
-      if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-      output_filename = os.path.join(output_dir, output_filename)
-      with codecs.open(output_filename, 'w', encoding='utf-8') as f:
-        graph_outputs.dump_current_predictions(f, prefix_root=self._prefix_root)
-    print('\033[92mParsing 1 file took {:0.1f} seconds\033[0m'.format(time.time() - graph_outputs.time))
+    input_dir, input_filename = os.path.split(input_filename)
+    if output_dir is None:
+      output_dir = os.path.join(self.save_dir, 'parsed', input_dir)
+    elif output_filename is None:
+      output_filename = input_filename
+    
+    if not os.path.exists(output_dir):
+      os.makedirs(output_dir)
+    output_filename = os.path.join(output_dir, output_filename)
+    with codecs.open(output_filename, 'w', encoding='utf-8') as f:
+      graph_outputs.dump_current_predictions(f, prefix_root=self._prefix_root)
+    if print_time:
+      print('\033[92mParsing 1 file took {:0.1f} seconds\033[0m'.format(time.time() - graph_outputs.time))
     return
     
-    
   #=============================================================
-  def parse_files(self, dataset, graph_outputs, sess, output_dir=None):
+  def parse_files(self, dataset, graph_outputs, sess, output_dir=None, print_time=False):
     """"""
     
     probability_tensors = graph_outputs.probabilities
-    filenames = dataset.filenames
+    input_filenames = dataset.filenames
     graph_outputs.restart_timer()
-    for file_index, input_filename in enumerate(filenames):
+    for file_index, input_filename in enumerate(input_filenames):
       for indices in dataset.file_batch_iterator(file_index):
         feed_dict = dataset.set_placeholders(indices)
         probabilities = sess.run(probability_tensors, feed_dict=feed_dict)
@@ -333,12 +333,15 @@ class BaseNetwork(object):
       input_dir, input_filename = os.path.split(input_filename)
       if output_dir is None:
         file_output_dir = os.path.join(self.save_dir, 'parsed', input_dir)
+      else:
+        file_output_dir = output_dir
       if not os.path.exists(file_output_dir):
         os.makedirs(file_output_dir)
       output_filename = os.path.join(file_output_dir, input_filename)
       with codecs.open(output_filename, 'w', encoding='utf-8') as f:
         graph_outputs.dump_current_predictions(f, prefix_root=self._prefix_root)
-    print('\033[92mParsing {} file{} took {:0.1f} seconds\033[0m'.format(file_index+1, 's' if file_index else '', time.time() - graph_outputs.time))
+    if print_time:
+      print('\033[92mParsing {} file{} took {:0.1f} seconds\033[0m'.format(file_index+1, 's' if file_index else '', time.time() - graph_outputs.time))
     return
 
   #=============================================================

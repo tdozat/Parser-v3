@@ -115,7 +115,7 @@ def train(**kwargs):
       kwargs[section] = {opt: value for opt, value in values}
   if 'DEFAULT' not in kwargs:
     kwargs['DEFAULT'] = {}
-  kwargs['DEFAULT'] = {'network_class': network_class}
+  kwargs['DEFAULT']['network_class'] = network_class
     
   # Figure out the save_directory
   if save_metadir is not None:
@@ -127,15 +127,11 @@ def train(**kwargs):
   if rand_file is not None:
     assert not load, "You can't load a random configuration!"
     #-------------------------------------------------------------
-    for arg in kwargs['DEFAULT']:
-      if arg.startswith('LANG'):
-        lang = arg.split('=')[1]
-      elif arg.startswith('TREEBANK'):
-        treebank = arg.split('=')[1]
-      elif arg.startswith('LC'):
-        lc = arg.split('=')[1]
-      elif arg.startswith('TB'):
-        tb = arg.split('=')[1]
+    print(kwargs['DEFAULT'])
+    lang = kwargs['DEFAULT']['LANG']
+    treebank = kwargs['DEFAULT']['TREEBANK']
+    lc = kwargs['DEFAULT']['LC']
+    tb = kwargs['DEFAULT']['TB']
     base = 'data/CoNLL18/UD_{}-{}/{}_{}-ud-dev.conllu'.format(lang, treebank, lc, tb)
     def eval_func(save_dir):
       return evaluate_tokens(base, os.path.join(save_dir, 'parsed', base))
