@@ -140,7 +140,7 @@ def chuliu_edmonds_one_root(scores):
     best_score, best_tree = -np.inf, None
     for root in roots:
       _scores = np.array(scores)
-      _scores[:,0] = 0
+      _scores[1:,0] = 0
       _scores[root] = 0
       _scores[root,0] = 1
       tree = chuliu_edmonds(_scores)

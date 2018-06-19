@@ -299,20 +299,24 @@ class BaseNetwork(object):
       tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
       graph_outputs.cache_predictions(tokens, indices)
 
-    input_dir, input_filename = os.path.split(input_filename)
-    if output_dir is None:
-      output_dir = os.path.join(self.save_dir, 'parsed', input_dir)
-    elif output_filename is None:
-      output_filename = input_filename
-    
-    if not os.path.exists(output_dir):
-      os.makedirs(output_dir)
-    output_filename = os.path.join(output_dir, output_filename)
-    with codecs.open(output_filename, 'w', encoding='utf-8') as f:
-      graph_outputs.dump_current_predictions(f, prefix_root=self._prefix_root)
+    if output_dir is None and output_filename is None:
+      graph_outputs.print_current_predictions(prefix_root=self._prefix_root)
+    else:
+      input_dir, input_filename = os.path.split(input_filename)
+      if output_dir is None:
+        output_dir = os.path.join(self.save_dir, 'parsed', input_dir)
+      elif output_filename is None:
+        output_filename = input_filename
+      
+      if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+      output_filename = os.path.join(output_dir, output_filename)
+      with codecs.open(output_filename, 'w', encoding='utf-8') as f:
+        graph_outputs.dump_current_predictions(f, prefix_root=self._prefix_root)
     if print_time:
       print('\033[92mParsing 1 file took {:0.1f} seconds\033[0m'.format(time.time() - graph_outputs.time))
     return
+
   #=============================================================
   def parse_files(self, dataset, graph_outputs, sess, output_dir=None, print_time=False):
     """"""

@@ -229,6 +229,28 @@ class GraphOutputs(object):
     return
   
   #=============================================================
+  def print_current_predictions(self, prefix_root=True):
+    """"""
+    
+    order = np.argsort(self.predictions['indices'])
+    fields = ['form', 'lemma', 'upos', 'xpos', 'morph', 'dephead', 'deprel', 'semrel', 'misc']
+    for i in order:
+      j = prefix_root
+      token = []
+      while j < len(self.predictions['id'][i]):
+        token = [self.predictions['id'][i][j]]
+        for field in fields:
+          if field in self.predictions:
+            token.append(self.predictions[field][i][j])
+          else:
+            token.append('_')
+        print('\t'.join(token))
+        j += 1
+      print('')
+    self.predictions = {'indices': [], 'debug': [], 'debug2': 0}
+    return
+
+  #=============================================================
   def dump_current_predictions(self, f, prefix_root=True):
     """"""
     
@@ -247,18 +269,6 @@ class GraphOutputs(object):
         f.write('\t'.join(token)+'\n')
         j += 1
       f.write('\n')
-    #with open(os.path.join(self.save_dir, 'debug.log'), 'w') as g:
-    #  sentidx = 0
-    #  total = 0
-    #  for i in order:
-    #    where = np.where(self.predictions['debug'][i])
-    #    total += len(where[0])
-    #    if len(where[0]):
-    #      g.write('=== {} ===\n'.format(sentidx))
-    #      g.write('{}, {}\n'.format(where, self.predictions['debug'][i][where]))
-    #    sentidx += 1
-    #  g.write('{}\n'.format(total))
-    #  g.write('{}\n'.format(self.predictions['debug2']))
     self.predictions = {'indices': [], 'debug': [], 'debug2': 0}
     return
   

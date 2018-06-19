@@ -176,8 +176,8 @@ class IndexVocab(BaseVocab):
         
         #-----------------------------------------------------------
         # Compute probabilities/cross entropy
-        # (n x m x m) -> (n x m x m)
-        probabilities = tf.nn.softmax(logits)
+        # (n x m x m)  o (m x m) o (n x m x 1) -> (n x m x m)
+        probabilities = tf.nn.softmax(logits) * (1-tf.eye(bucket_size)) * tf.to_float(tf.expand_dims(token_weights, -1))
         # (n x m), (n x m x m), (n x m) -> ()
         loss = tf.losses.sparse_softmax_cross_entropy(
           targets,
