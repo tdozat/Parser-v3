@@ -170,6 +170,7 @@ class BaseNetwork(object):
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     with tf.Session(config=config) as sess:
+      # TODO HERE: restore input networks
       sess.run(tf.global_variables_initializer())
       #---------------------------------------------------------
       def run(stdscr):
