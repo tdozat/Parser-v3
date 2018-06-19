@@ -228,8 +228,8 @@ class BaseNetwork(object):
                   feed_dict = devset.set_placeholders(batch)
                   dev_scores = sess.run(dev_tensors, feed_dict=feed_dict)
                   dev_outputs.update_history(dev_scores)
-                current_accuracy *= .75
-                current_accuracy += .25*dev_outputs.get_current_accuracy()
+                current_accuracy *= .5
+                current_accuracy += .5*dev_outputs.get_current_accuracy()
                 if current_accuracy >= best_accuracy:
                   steps_since_best = 0
                   best_accuracy = current_accuracy
@@ -279,7 +279,8 @@ class BaseNetwork(object):
       curses.wrapper(run)
 
       with open(os.path.join(self.save_dir, 'scores.txt'), 'wb') as f:
-        f.write(b'\n'.join(screen_output).decode('utf-8'))
+        #f.write(b'\n'.join(screen_output).decode('utf-8'))
+        f.write(b'\n'.join(screen_output))
       print(b'\n'.join(screen_output).decode('utf-8'))
 
     return
