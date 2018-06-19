@@ -143,12 +143,18 @@ def chuliu_edmonds_one_root(scores):
       _scores[1:,0] = 0
       _scores[root] = 0
       _scores[root,0] = 1
-      tree = chuliu_edmonds(_scores)
-      tree_probs = _scores[np.arange(len(_scores)), tree]
+      _tree = chuliu_edmonds(_scores)
+      tree_probs = _scores[np.arange(len(_scores)), _tree]
       tree_score = np.log(tree_probs).sum()
       if tree_score > best_score:
         best_score = tree_score
-        best_tree = tree
+        best_tree = _tree
+    try:
+      assert best_tree is not None
+    except:
+      with open('debug2.log', 'w') as f:
+        f.write('{}: {}\n'.format(tree, scores))
+        f.write('{}: {}\n'.format(_tree, _scores, tree_score))
     return best_tree
   
 #***************************************************************
