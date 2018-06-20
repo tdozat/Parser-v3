@@ -39,8 +39,6 @@ from parser.neural.optimizers import AdamOptimizer, AMSGradOptimizer
 class BaseNetwork(object):
   """"""
 
-  _prefix_root = None
-  _postfix_root = None
   _evals = set()
 
   #=============================================================
@@ -112,16 +110,10 @@ class BaseNetwork(object):
     """"""
 
     trainset = conllu_dataset.CoNLLUTrainset(self.vocabs,
-                                             prefix_root=self.prefix_root,
-                                             postfix_root=self.postfix_root,
                                              config=self._config)
     devset = conllu_dataset.CoNLLUDevset(self.vocabs,
-                                         prefix_root=self.prefix_root,
-                                         postfix_root=self.postfix_root,
                                          config=self._config)
     testset = conllu_dataset.CoNLLUTestset(self.vocabs,
-                                           prefix_root=self.prefix_root,
-                                           postfix_root=self.postfix_root,
                                            config=self._config)
 
     factored_deptree = None
@@ -170,7 +162,8 @@ class BaseNetwork(object):
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     with tf.Session(config=config) as sess:
-      # TODO HERE: restore input networks
+      for saver, path in zip(input_network_savers, input_network_paths):
+        saver.restore(sess, path)
       sess.run(tf.global_variables_initializer())
       #---------------------------------------------------------
       def run(stdscr):
@@ -210,21 +203,24 @@ class BaseNetwork(object):
         stdscr.move(2,0)
         stdscr.refresh()
         try:
+          current_epoch = 0
           best_accuracy = 0
           current_accuracy = 0
           steps_since_best = 0
-          while current_step < self.max_steps and steps_since_best < self.max_steps_without_improvement:
+          while (not self.max_steps or current_step < self.max_steps) and \
+                (not self.max_steps_without_improvement or steps_since_best < self.max_steps_without_improvement) and \
+                (not self.n_passes or current_epoch < len(trainset.conllu_files)*self.n_passes):
             if steps_since_best > .1*self.max_steps_without_improvement and self.switch_optimizers:
               train_tensors = amsgrad_train_tensors
               current_optimizer = 'AMSGrad'
-            for batch in trainset.shuffled_batch_iterator():
+            for batch in trainset.batch_iterator(shuffle=True):
               train_outputs.restart_timer()
               feed_dict = trainset.set_placeholders(batch)
               _, train_scores = sess.run(train_tensors, feed_dict=feed_dict)
               train_outputs.update_history(train_scores)
               current_step += 1
               if current_step % self.print_every == 0:
-                for batch in devset.shuffled_batch_iterator():
+                for batch in devset.batch_iterator(shuffle=False):
                   dev_outputs.restart_timer()
                   feed_dict = devset.set_placeholders(batch)
                   dev_scores = sess.run(dev_tensors, feed_dict=feed_dict)
@@ -262,7 +258,9 @@ class BaseNetwork(object):
                 dev_outputs.print_recent_history(stdscr)
                 stdscr.move(2,0)
                 stdscr.refresh()
+            current_epoch = sess.run(self.global_step)
             sess.run(update_step)
+            trainset.load_next()
           with open(os.path.join(self.save_dir, 'SUCCESS'), 'w') as f:
             pass
         except KeyboardInterrupt:
@@ -291,9 +289,9 @@ class BaseNetwork(object):
     """"""
 
     probability_tensors = graph_outputs.probabilities
-    input_filename = dataset.filenames[0]
+    input_filename = dataset.conllu_files[0]
     graph_outputs.restart_timer()
-    for indices in dataset.file_batch_iterator(0):
+    for indices in dataset.batch_iterator(shuffle=False):
       feed_dict = dataset.set_placeholders(indices)
       probabilities = sess.run(probability_tensors, feed_dict=feed_dict)
       predictions = graph_outputs.probs_to_preds(probabilities)
@@ -302,7 +300,7 @@ class BaseNetwork(object):
       graph_outputs.cache_predictions(tokens, indices)
 
     if output_dir is None and output_filename is None:
-      graph_outputs.print_current_predictions(prefix_root=self._prefix_root)
+      graph_outputs.print_current_predictions()
     else:
       input_dir, input_filename = os.path.split(input_filename)
       if output_dir is None:
@@ -314,7 +312,7 @@ class BaseNetwork(object):
         os.makedirs(output_dir)
       output_filename = os.path.join(output_dir, output_filename)
       with codecs.open(output_filename, 'w', encoding='utf-8') as f:
-        graph_outputs.dump_current_predictions(f, prefix_root=self._prefix_root)
+        graph_outputs.dump_current_predictions(f)
     if print_time:
       print('\033[92mParsing 1 file took {:0.1f} seconds\033[0m'.format(time.time() - graph_outputs.time))
     return
@@ -324,10 +322,9 @@ class BaseNetwork(object):
     """"""
 
     probability_tensors = graph_outputs.probabilities
-    input_filenames = dataset.filenames
     graph_outputs.restart_timer()
-    for file_index, input_filename in enumerate(input_filenames):
-      for indices in dataset.file_batch_iterator(file_index):
+    for input_filename in dataset.conllu_files:
+      for indices in dataset.batch_iterator(shuffle=False):
         feed_dict = dataset.set_placeholders(indices)
         probabilities = sess.run(probability_tensors, feed_dict=feed_dict)
         predictions = graph_outputs.probs_to_preds(probabilities)
@@ -344,7 +341,11 @@ class BaseNetwork(object):
         os.makedirs(file_output_dir)
       output_filename = os.path.join(file_output_dir, input_filename)
       with codecs.open(output_filename, 'w', encoding='utf-8') as f:
-        graph_outputs.dump_current_predictions(f, prefix_root=self._prefix_root)
+        graph_outputs.dump_current_predictions(f)
+      
+      # Load the next conllu file
+      dataset.load_next()
+    
     if print_time:
       print('\033[92mParsing {} file{} took {:0.1f} seconds\033[0m'.format(file_index+1, 's' if file_index else '', time.time() - graph_outputs.time))
     return
@@ -354,8 +355,6 @@ class BaseNetwork(object):
     """"""
 
     parseset = conllu_dataset.CoNLLUDataset(conllu_files, self.vocabs,
-                                            prefix_root=self.prefix_root,
-                                            postfix_root=self.postfix_root,
                                             config=self._config)
 
     if output_filename:
@@ -406,12 +405,6 @@ class BaseNetwork(object):
   @property
   def train_conllus(self):
     return self._config.getfiles(self, 'train_conllus')
-  @property
-  def prefix_root(self):
-    return self._prefix_root
-  @property
-  def postfix_root(self):
-    return self._postfix_root
   @property
   def cuda_visible_devices(self):
     return os.getenv('CUDA_VISIBLE_DEVICES')
@@ -537,6 +530,9 @@ class BaseNetwork(object):
   @property
   def max_steps_without_improvement(self):
     return self._config.getint(self, 'max_steps_without_improvement')
+  @property
+  def n_passes(self):
+    return self._config.getint(self, 'n_passes')
   @property
   def parse_datasets(self):
     return self._config.getboolean(self, 'parse_datasets')

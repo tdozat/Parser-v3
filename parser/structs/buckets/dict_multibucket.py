@@ -42,7 +42,6 @@ class DictMultibucket(BaseMultibucket, dict):
     self._lengths = []
     self._indices = {vocab.classname: [] for vocab in vocabs}
     self._tokens = {vocab.classname: [] for vocab in vocabs}
-    self._file_indices = []
     self._max_lengths = []
     return
   
@@ -53,14 +52,13 @@ class DictMultibucket(BaseMultibucket, dict):
     self._lengths = []
     self._indices = {vocab.classname: [] for vocab in vocabs}
     self._tokens = {vocab.classname: [] for vocab in vocabs}
-    self._file_indices = []
     for vocab_classname in self:
       for bucket in self[vocab_classname]:
         bucket.reset()
     return
   
   #=============================================================
-  def add(self, indices, tokens, file_index=-1, length=0):
+  def add(self, indices, tokens, length=0):
     """"""
     
     assert self._is_open, 'The DictMultibucket is not open for adding entries'
@@ -71,7 +69,6 @@ class DictMultibucket(BaseMultibucket, dict):
       self._indices[vocab_classname].append(indices[vocab_classname])
     for vocab_classname in tokens.keys():
       self._tokens[vocab_classname].append(tokens[vocab_classname])
-    self._file_indices.append(file_index)
     super(DictMultibucket, self).add(length)
     return 
   
@@ -85,7 +82,7 @@ class DictMultibucket(BaseMultibucket, dict):
     
     # Open the buckets
     shape = len(self._lengths)
-    dtype = [('file', 'i4'), ('bucket', 'i4')] + [(vocab_classname, 'i4') for vocab_classname in self.keys()]
+    dtype = [('bucket', 'i4')] + [(vocab_classname, 'i4') for vocab_classname in self.keys()]
     data = np.zeros(shape, dtype=dtype)
     for i, vocab_classname in enumerate(self.keys()):
       for bucket in self[vocab_classname]:
@@ -97,7 +94,6 @@ class DictMultibucket(BaseMultibucket, dict):
         sequence_index = self[vocab_classname][bucket_index].add(indices, tokens)
         data[vocab_classname][j] = sequence_index
         if i == 0:
-          data['file'][j] = self._file_indices[j]
           data['bucket'][j] = bucket_index
         else:
           assert data['bucket'][j] == bucket_index, 'CoNLLU data is somehow misaligned'
@@ -132,9 +128,6 @@ class DictMultibucket(BaseMultibucket, dict):
   @property
   def max_lengths(self):
     return self._max_lengths
-  @property
-  def file_indices(self):
-    return self.data['file']
   @property
   def bucket_indices(self):
     return self.data['bucket']

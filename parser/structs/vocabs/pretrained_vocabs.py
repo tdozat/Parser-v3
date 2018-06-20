@@ -20,7 +20,6 @@ from __future__ import division
 from __future__ import print_function
 
 import codecs
-import warnings
 import zipfile
 import gzip
 try:
@@ -29,6 +28,7 @@ except:
   try:
     from backports import lzma
   except:
+    import warnings
     warnings.warn('Install backports.lzma for xz support')
 from collections import Counter
 
