@@ -36,6 +36,8 @@ from parser.neural import nn, nonlin, embeddings, classifiers
 class TokenVocab(CountVocab):
   """"""
   
+  _save_str = 'tokens'
+  
   #=============================================================
   def __init__(self, *args, **kwargs):
     """"""
@@ -320,6 +322,7 @@ class TokenVocab(CountVocab):
     return outputs
   
   #=============================================================
+  # TODO make this compatible with zipped files
   def count(self, train_conllus):
     """"""
     
@@ -339,11 +342,8 @@ class TokenVocab(CountVocab):
       token = token.lower()
     self.counts[token] += 1
     return
-
+  
   #=============================================================
-  @property
-  def filename(self):
-    return os.path.join(self._config.getstr(self, 'save_dir'), self.field+'-tokens.lst')
   @property
   def diagonal(self):
     return self._config.getboolean(self, 'diagonal')

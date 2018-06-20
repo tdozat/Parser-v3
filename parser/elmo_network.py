@@ -36,7 +36,7 @@ from parser.neural import nn, nonlin, embeddings, recurrent, classifiers
 class ElmoNetwork(BaseNetwork):
   """"""
   
-  _evals = []
+  _evals = set()
   
   #=============================================================
   def build_graph(self, input_network_outputs={}, reuse=True):

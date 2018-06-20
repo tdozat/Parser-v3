@@ -37,6 +37,8 @@ from parser.neural import nn, nonlin, embeddings, recurrent, classifiers
 class SubtokenVocab(CountVocab):
   """"""
   
+  _save_str = 'subtokens'
+  
   #=============================================================
   def __init__(self, config=None):
     """"""
@@ -145,6 +147,29 @@ class SubtokenVocab(CountVocab):
       token = token.lower()
     self.counts.update(token)
     return
+
+  #=============================================================
+  def load(self):
+    """"""
+    
+    if super(SubtokenVocab, self).load():
+      return True
+    else:
+      if os.path.exists(self.token_vocab_savename):
+        token_vocab_filename = self.token_vocab_savename
+      elif self.token_vocab_loadname and os.path.exists(self.token_vocab_loadname):
+        token_vocab_filename = self.token_vocab_loadname
+      else:
+       return False
+      
+      with codecs.open(token_vocab_filename, encoding='utf-8', errors='ignore') as f:
+        for line in f:
+          line = line.rstrip()
+          if line:
+            token, _ = line.split()
+            self._count(token)
+      self.index_by_counts(dump=True)
+      return True
   
   #=============================================================
   def add(self, token):
@@ -202,8 +227,11 @@ class SubtokenVocab(CountVocab):
   
   #=============================================================
   @property
-  def filename(self):
-    return os.path.join(self._config.getstr(self, 'save_dir'), self.field+'-subtokens.lst')
+  def token_vocab_savename(self):
+    return os.path.join(self.save_dir, self.field+'-tokens.lst')
+  @property
+  def token_vocab_loadname(self):
+    return self._config.getstr(self, 'token_vocab_loadname')
   @property
   def max_buckets(self):
     return self._config.getint(self, 'max_buckets')

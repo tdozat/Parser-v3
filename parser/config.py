@@ -23,10 +23,7 @@ import six
 import os
 import glob
 
-try:
-  from ConfigParser import SafeConfigParser, NoOptionError
-except ImportError:
-  from configparser import SafeConfigParser, NoOptionError
+from configparser import SafeConfigParser, NoOptionError, ExtendedInterpolation
   
 #***************************************************************
 # NOTE kwarg syntax should be 'SectionName'={'option1': value1, 'option2': value2}
@@ -38,7 +35,7 @@ class Config(SafeConfigParser, object):
     """"""
     
     #super(Config, self).__init__(defaults=kwargs.pop('DEFAULT', {}))
-    super(Config, self).__init__()
+    super(Config, self).__init__(interpolation=ExtendedInterpolation())
     self.read([defaults_file, config_file])
     for section, options in six.iteritems(kwargs):
       if section != 'DEFAULT' and not self.has_section(section):

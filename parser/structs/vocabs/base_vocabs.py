@@ -99,6 +99,9 @@ class BaseVocab(object):
 
   #=============================================================
   @property
+  def save_dir(self):
+    return self._config.getstr(self, 'save_dir')
+  @property
   def depth(self):
     return self._depth
   @property
@@ -127,7 +130,6 @@ class SetVocab(BaseVocab):
     """"""
 
     super(SetVocab, self).__init__(*args, **kwargs)
-    self._cased = self._config.getboolean(self, 'cased') # cached for faster access
 
     # Set the special tokens
     special_tokens = [getattr(base_special_token, self._config.getstr(self, 'special_token_case'))() for base_special_token in self._base_special_tokens]
@@ -175,7 +177,7 @@ class SetVocab(BaseVocab):
   #=============================================================
   @property
   def cased(self):
-    return self._cased
+    return self._config.getboolean(self, 'cased')
   @property
   def base_special_tokens(self):
     return self._base_special_tokens
@@ -241,7 +243,6 @@ class CountVocab(SetVocab):
 
     super(CountVocab, self).__init__(*args, **kwargs)
     self._counts = Counter()
-    self._min_occur_count = self._config.getint(self, 'min_occur_count')
 
   #=============================================================
   def index_by_counts(self, dump=True):
@@ -249,7 +250,9 @@ class CountVocab(SetVocab):
 
     cur_idx = len(self)
     for token, count in self.sorted():
-      if token not in self.special_tokens and count >= self.min_occur_count:
+      if token not in self.special_tokens and\
+         (not self.min_occur_count or count >= self.min_occur_count) and\
+         (not self.max_embed_count or cur_idx < self.max_embed_count+len(self.special_tokens)):
         self[token] = cur_idx
         cur_idx += 1
     if dump:
@@ -260,7 +263,7 @@ class CountVocab(SetVocab):
   def dump(self):
     """"""
 
-    with codecs.open(self.filename, 'w', encoding='utf-8', errors='ignore') as f:
+    with codecs.open(self.vocab_savename, 'w', encoding='utf-8', errors='ignore') as f:
       for token, count in self.sorted():
         f.write(u'{}\t{}\n'.format(token, count))
     return
@@ -269,18 +272,25 @@ class CountVocab(SetVocab):
   def load(self):
     """"""
 
-    cur_idx = len(self.special_tokens)
-    if os.path.exists(self.filename):
-      with codecs.open(self.filename, encoding='utf-8', errors='ignore') as f:
-        for line in f:
-          line = line.rstrip()
-          if line:
-            token, count = line.split('\t')
-            self.counts[token] = int(count)
-      self.index_by_counts(dump=False)
-      return True
+    # First check to see if it's saved in 
+    dump = None
+    if os.path.exists(self.vocab_savename):
+      vocab_filename = self.vocab_savename
+      dump = False
+    elif self.vocab_loadname and os.path.exists(self.vocab_loadname):
+      vocab_filename = self.vocab_loadname
+      dump = True
     else:
-      return False
+     return False
+    
+    with codecs.open(vocab_filename, encoding='utf-8', errors='ignore') as f:
+      for line in f:
+        line = line.rstrip()
+        if line:
+          token, count = line.split()
+          self.counts[token] = int(count)
+    self.index_by_counts(dump=dump)
+    return True
 
   #=============================================================
   def sorted(self):
@@ -288,11 +298,17 @@ class CountVocab(SetVocab):
 
   #=============================================================
   @property
-  def filename(self):
-    raise NotImplementedError()
+  def vocab_savename(self):
+    return os.path.join(self.save_dir, self.field+'-'+self._save_str+'.lst')
+  @property
+  def vocab_loadname(self):
+    return self._config.getstr(self, 'vocab_loadname')
   @property
   def counts(self):
     return self._counts
   @property
   def min_occur_count(self):
-    return self._min_occur_count
+    return self._config.getint(self, 'min_occur_count')
+  @property
+  def max_embed_count(self):
+    return self._config.getint(self, 'max_embed_count')

@@ -45,7 +45,7 @@ class ListMultibucket(BaseMultibucket, list):
     self._indices = [[]]
     self._tokens = [[]]
     self._str2idx = {'': 0}
-    self.placeholder = tf.placeholder(tf.int32, [None], name=self.__class__.__name__)
+    self.placeholder = tf.placeholder(tf.int32, [None], name=self.classname)
     return
   
   #=============================================================
@@ -56,8 +56,6 @@ class ListMultibucket(BaseMultibucket, list):
     self._indices = [[]]
     self._tokens = [[]]
     self._str2idx = {'': 0}
-    for vocab in vocabs:
-      vocab.reset()
     return
   
   #=============================================================
