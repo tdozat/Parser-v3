@@ -46,7 +46,7 @@ class DictMultibucket(BaseMultibucket, dict):
     return
   
   #=============================================================
-  def reset(self):
+  def reset(self, vocabs):
     """"""
     
     self._lengths = []

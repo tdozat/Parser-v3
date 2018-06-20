@@ -36,8 +36,6 @@ from parser.neural import nn, nonlin, embeddings, recurrent, classifiers
 class ElmoNetwork(BaseNetwork):
   """"""
   
-  _prefix_root = False
-  _postfix_root = False
   _evals = []
   
   #=============================================================
@@ -59,7 +57,7 @@ class ElmoNetwork(BaseNetwork):
     tokens_per_sequence = tf.reduce_sum(token_weights, axis=1)
     n_tokens = tf.reduce_sum(tokens_per_sequence)
     n_sequences = tf.count_nonzero(tokens_per_sequence)
-    seq_lengths = tokens_per_sequence + self.prefix_root+self.postfix_root
+    seq_lengths = tokens_per_sequence + 1
     tokens = {'n_tokens': n_tokens,
               'tokens_per_sequence': tokens_per_sequence,
               'token_weights': token_weights,

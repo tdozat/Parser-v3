@@ -65,7 +65,7 @@ class CoNLLUDataset(set):
     """"""
     
     if self._cur_file_idx == -1 or len(self.conllu_files) > 1:
-      self._multibucket.reset()
+      self._multibucket.reset(self)
       for vocab in self:
         vocab.reset()
       
@@ -74,7 +74,7 @@ class CoNLLUDataset(set):
         self._cur_file_idx = (self._cur_file_idx + 1) % len(self.conllu_files)
       
       with self.open():
-        for sent in self.itersents(self.conllu_files[idx]):
+        for sent in self.itersents(self.conllu_files[file_idx]):
           self.add(sent)
     return
   

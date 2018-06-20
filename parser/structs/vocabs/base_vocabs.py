@@ -85,6 +85,9 @@ class BaseVocab(object):
     raise NotImplementedError('get_root not implemented for %s' % self.classname)
 
   #=============================================================
+  def reset(self):
+    return
+
   def load(self):
     return True
 
