@@ -384,7 +384,8 @@ class BaseNetwork(object):
       dataset.load_next()
     
     if print_time:
-      print('\033[92mParsing {} file{} took {:0.1f} seconds\033[0m'.format(file_index+1, 's' if file_index else '', time.time() - graph_outputs.time))
+      n_files = len(dataset.conllu_files)
+      print('\033[92mParsing {} file{} took {:0.1f} seconds\033[0m'.format(n_files, 's' if n_files > 1 else '', time.time() - graph_outputs.time))
     return
 
   #=============================================================
