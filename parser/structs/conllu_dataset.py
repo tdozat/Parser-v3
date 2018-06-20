@@ -61,17 +61,24 @@ class CoNLLUDataset(set):
     return
   
   #=============================================================
+  def reset(self):
+    """"""
+    
+    self._multibucket.reset(self)
+    for vocab in self:
+      vocab.reset()
+    return
+    
+  #=============================================================
   def load_next(self, file_idx=None):
     """"""
     
     if self._cur_file_idx == -1 or len(self.conllu_files) > 1:
-      self._multibucket.reset(self)
-      for vocab in self:
-        vocab.reset()
-      
+      self.reset()
+    
       if file_idx is None:
-        file_idx = self._cur_file_idx
         self._cur_file_idx = (self._cur_file_idx + 1) % len(self.conllu_files)
+        file_idx = self._cur_file_idx
       
       with self.open():
         for sent in self.itersents(self.conllu_files[file_idx]):
@@ -173,10 +180,12 @@ class CoNLLUDataset(set):
   def get_tokens(self, indices):
     """"""
     
+    
     token_dict = {}
     for vocab in self:
       token_dict[vocab.field] = self._multibucket.get_tokens(vocab.classname, indices)
-    return token_dict
+    lengths = self._multibucket.lengths[indices]
+    return token_dict, lengths
   
   #=============================================================
   @staticmethod

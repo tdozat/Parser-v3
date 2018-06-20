@@ -77,6 +77,7 @@ class DictMultibucket(BaseMultibucket, dict):
     """"""
     
     # Decide where everything goes
+    self._lengths = np.array(self._lengths)
     self._max_lengths = self.compute_max_lengths(self._lengths, self.max_buckets)
     len2bkt = self.get_len2bkt(self._max_lengths)
     
@@ -125,6 +126,9 @@ class DictMultibucket(BaseMultibucket, dict):
     return [self._tokens[vocab_classname][index] for index in indices]
   
   #=============================================================
+  @property
+  def lengths(self):
+    return self._lengths
   @property
   def max_lengths(self):
     return self._max_lengths

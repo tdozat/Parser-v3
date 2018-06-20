@@ -55,7 +55,6 @@ class BaseNetwork(object):
     extant_vocabs = {}
     for input_network in self.input_networks:
       for vocab in input_network.vocabs:
-        print(vocab.classname)
         if vocab.classname in extant_vocabs:
           assert vocab is extant_vocabs[vocab.classname], "Two input networks have different instances of {}".format(vocab.classname)
         else:
@@ -233,8 +232,8 @@ class BaseNetwork(object):
                   if self.save_model:
                     saver.save(sess, os.path.join(self.save_dir, 'ckpt'), global_step=self.global_step, write_meta_graph=False)
                   if self.parse_datasets:
-                    self.parse_files(devset, dev_outputs, sess)
-                    self.parse_files(testset, dev_outputs, sess)
+                    self.parse_files(devset, dev_outputs, sess, print_time=False)
+                    self.parse_files(testset, dev_outputs, sess, print_time=False)
                 else:
                   steps_since_best += self.print_every
                 current_epoch = sess.run(self.global_step)
@@ -285,17 +284,53 @@ class BaseNetwork(object):
     return
 
   #=============================================================
-  def parse_file(self, dataset, graph_outputs, sess, output_dir=None, output_filename=None, print_time=False):
+  def parse(self, conllu_files, output_dir=None, output_filename=None):
+    """"""
+
+    parseset = conllu_dataset.CoNLLUDataset(conllu_files, self.vocabs,
+                                            config=self._config)
+
+    if output_filename:
+      assert len(conllu_files) == 1, "output_filename can only be specified for one input file"
+    factored_deptree = None
+    factored_semgraph = None
+    for vocab in self.output_vocabs:
+      if vocab.field == 'deprel':
+        factored_deptree = vocab.factorized
+      elif vocab.field == 'semrel':
+        factored_semgraph = vocab.factorized
+    with tf.variable_scope(self.classname, reuse=False):
+      parse_graph = self.build_graph(reuse=True)
+      parse_outputs = DevOutputs(*parse_graph, load=False, factored_deptree=factored_deptree, factored_semgraph=factored_semgraph, config=self._config)
+    parse_tensors = parse_outputs.accuracies
+    all_variables = set(tf.global_variables())
+    non_save_variables = set(tf.get_collection('non_save_variables'))
+    save_variables = all_variables - non_save_variables
+    saver = tf.train.Saver(list(save_variables), max_to_keep=1)
+
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    with tf.Session(config=config) as sess:
+      #sess.run(tf.global_variables_initializer())
+      saver.restore(sess, tf.train.latest_checkpoint(self.save_dir))
+      if len(conllu_files) == 1 or output_filename is not None:
+        self.parse_file(parseset, parse_outputs, sess, output_dir=output_dir, output_filename=output_filename)
+      else:
+        self.parse_files(parseset, parse_outputs, sess, output_dir=output_dir)
+    return
+
+  #=============================================================
+  def parse_file(self, dataset, graph_outputs, sess, output_dir=None, output_filename=None, print_time=True):
     """"""
 
     probability_tensors = graph_outputs.probabilities
     input_filename = dataset.conllu_files[0]
     graph_outputs.restart_timer()
     for indices in dataset.batch_iterator(shuffle=False):
+      tokens, lengths = dataset.get_tokens(indices)
       feed_dict = dataset.set_placeholders(indices)
       probabilities = sess.run(probability_tensors, feed_dict=feed_dict)
-      predictions = graph_outputs.probs_to_preds(probabilities)
-      tokens = dataset.get_tokens(indices)
+      predictions = graph_outputs.probs_to_preds(probabilities, lengths)
       tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
       graph_outputs.cache_predictions(tokens, indices)
 
@@ -318,17 +353,19 @@ class BaseNetwork(object):
     return
 
   #=============================================================
-  def parse_files(self, dataset, graph_outputs, sess, output_dir=None, print_time=False):
+  def parse_files(self, dataset, graph_outputs, sess, output_dir=None, print_time=True):
     """"""
 
     probability_tensors = graph_outputs.probabilities
     graph_outputs.restart_timer()
+    with open('debug.log', 'w') as f:
+      f.write('{}'.format(dataset.conllu_files))
     for input_filename in dataset.conllu_files:
-      for indices in dataset.batch_iterator(shuffle=False):
+      for i, indices in enumerate(dataset.batch_iterator(shuffle=False)):
+        tokens, lengths = dataset.get_tokens(indices)
         feed_dict = dataset.set_placeholders(indices)
         probabilities = sess.run(probability_tensors, feed_dict=feed_dict)
-        predictions = graph_outputs.probs_to_preds(probabilities)
-        tokens = dataset.get_tokens(indices)
+        predictions = graph_outputs.probs_to_preds(probabilities, lengths)
         tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
         graph_outputs.cache_predictions(tokens, indices)
 
@@ -348,42 +385,6 @@ class BaseNetwork(object):
     
     if print_time:
       print('\033[92mParsing {} file{} took {:0.1f} seconds\033[0m'.format(file_index+1, 's' if file_index else '', time.time() - graph_outputs.time))
-    return
-
-  #=============================================================
-  def parse(self, conllu_files, output_dir=None, output_filename=None):
-    """"""
-
-    parseset = conllu_dataset.CoNLLUDataset(conllu_files, self.vocabs,
-                                            config=self._config)
-
-    if output_filename:
-      assert len(conllu_files) == 1, "output_filename can only be specified for one input file"
-    factored_deptree = None
-    factored_semgraph = None
-    for vocab in self.output_vocabs:
-      if vocab.field == 'deprel':
-        factored_deptree = vocab.factorized
-      elif vocab.field == 'semrel':
-        factored_semgraph = vocab.factorized
-    with tf.variable_scope(self.classname, reuse=False):
-      parse_outputs = DevOutputs(*self.build_graph(reuse=True), load=True, factored_deptree=factored_deptree, factored_semgraph=factored_semgraph, config=self._config)
-    parse_tensors = parse_outputs.accuracies
-    all_variables = set(tf.global_variables())
-    non_save_variables = set(tf.get_collection('non_save_variables'))
-    save_variables = all_variables - non_save_variables
-    saver = tf.train.Saver(list(save_variables), max_to_keep=1)
-
-    output_fields = {vocab.field: vocab for vocab in self.output_vocabs}
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    with tf.Session(config=config) as sess:
-      sess.run(tf.global_variables_initializer())
-      saver.restore(sess, tf.train.latest_checkpoint(self.save_dir))
-      if len(conllu_files) == 1 or output_filename is not None:
-        self.parse_file(parseset, parse_outputs, sess, output_dir=output_dir, output_filename=output_filename)
-      else:
-        self.parse_files(parseset, parse_outputs, sess, output_dir=output_dir)
     return
 
   #=============================================================

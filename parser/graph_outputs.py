@@ -132,7 +132,7 @@ class GraphOutputs(object):
     return
   
   #=============================================================
-  def probs_to_preds(self, probabilities, factored_deptree=True, factored_semgraph=False):
+  def probs_to_preds(self, probabilities, lengths):
     """"""
     
     predictions = {}
@@ -165,9 +165,11 @@ class GraphOutputs(object):
         dephead_probs = deptree_probs.sum(axis=-1)
         # (n x m x m) -> (n x m)
         #dephead_preds = np.argmax(dephead_probs, axis=-1)
-        cle = [chuliu_edmonds_one_root(_dephead_probs) for _dephead_probs in dephead_probs]
         try:
-          dephead_preds = np.vstack(cle)
+          dephead_preds = np.zeros(dephead_probs.shape[:2], dtype=np.int32)
+          for i, (_dephead_probs, length) in enumerate(zip(dephead_probs, lengths)):
+            cle = chuliu_edmonds_one_root(_dephead_probs[:length, :length])
+            dephead_preds[i, :length] = cle
         except:
           with open('debug.log', 'w') as f:
             f.write('{}\n'.format(cle))
@@ -229,13 +231,13 @@ class GraphOutputs(object):
     return
   
   #=============================================================
-  def print_current_predictions(self, prefix_root=True):
+  def print_current_predictions(self):
     """"""
     
     order = np.argsort(self.predictions['indices'])
     fields = ['form', 'lemma', 'upos', 'xpos', 'morph', 'dephead', 'deprel', 'semrel', 'misc']
     for i in order:
-      j = prefix_root
+      j = 1
       token = []
       while j < len(self.predictions['id'][i]):
         token = [self.predictions['id'][i][j]]
@@ -247,17 +249,17 @@ class GraphOutputs(object):
         print('\t'.join(token))
         j += 1
       print('')
-    self.predictions = {'indices': [], 'debug': [], 'debug2': 0}
+    self.predictions = {'indices': []}
     return
 
   #=============================================================
-  def dump_current_predictions(self, f, prefix_root=True):
+  def dump_current_predictions(self, f):
     """"""
     
     order = np.argsort(self.predictions['indices'])
     fields = ['form', 'lemma', 'upos', 'xpos', 'morph', 'dephead', 'deprel', 'semrel', 'misc']
     for i in order:
-      j = prefix_root
+      j = 1
       token = []
       while j < len(self.predictions['id'][i]):
         token = [self.predictions['id'][i][j]]
@@ -269,7 +271,7 @@ class GraphOutputs(object):
         f.write('\t'.join(token)+'\n')
         j += 1
       f.write('\n')
-    self.predictions = {'indices': [], 'debug': [], 'debug2': 0}
+    self.predictions = {'indices': []}
     return
   
   #=============================================================
@@ -304,24 +306,6 @@ class GraphOutputs(object):
     token_accuracy /= len(self.evals)
     return np.exp(token_accuracy) * 100
   
-  ##=============================================================
-  #def get_current_geometric_accuracy(self):
-  #  """"""
-  #  
-  #  token_accuracy = 0
-  #  sequence_accuracy = 0
-  #  for field in self.history:
-  #    if field in self.evals:
-  #      if field.startswith('sem'):
-  #        token_accuracy += .5*np.log(self.compute_token_F1(field)+1e-12)
-  #        sequence_accuracy += .5*np.log(self.compute_sequence_accuracy(field)+1e-12)
-  #      else:
-  #        token_accuracy += .5*np.log(self.compute_token_accuracy(field)+1e-12)
-  #        sequence_accuracy += .5*np.log(self.compute_sequence_accuracy(field)+1e-12)
-  #  token_accuracy /= len(self.evals)
-  #  sequence_accuracy /= len(self.evals)
-  #  return np.exp(.67*token_accuracy + .33*sequence_accuracy) * 100
-  #
   #=============================================================
   def get_current_geometric_accuracy(self):
     """"""

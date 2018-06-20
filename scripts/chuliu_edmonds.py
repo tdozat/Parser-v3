@@ -48,6 +48,7 @@ def tarjan(tree):
 def chuliu_edmonds(scores):
   """"""
   
+  scores *= (1-np.eye(scores.shape[0]))
   scores[0] = 0
   scores[0,0] = 1
   tree = np.argmax(scores, axis=1)
@@ -137,7 +138,7 @@ def chuliu_edmonds_one_root(scores):
     scores[root,0] = 1
     return chuliu_edmonds(scores)
   else:
-    best_score, best_tree = -np.inf, None
+    best_score, best_tree = -np.inf, tree
     for root in roots:
       _scores = np.array(scores)
       _scores[1:,0] = 0
@@ -145,7 +146,7 @@ def chuliu_edmonds_one_root(scores):
       _scores[root,0] = 1
       _tree = chuliu_edmonds(_scores)
       tree_probs = _scores[np.arange(len(_scores)), _tree]
-      tree_score = np.log(tree_probs).sum()
+      tree_score = np.log(tree_probs).sum() if tree_probs.all() else -np.inf
       if tree_score > best_score:
         best_score = tree_score
         best_tree = _tree
