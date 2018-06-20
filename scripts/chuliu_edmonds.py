@@ -127,13 +127,14 @@ def chuliu_edmonds(scores):
 #===============================================================
 def chuliu_edmonds_one_root(scores):
   """"""
-  
+
   tree = chuliu_edmonds(scores)
   roots = np.where(np.equal(tree[1:], 0))[0]+1
   if len(roots) == 1:
     return tree
   elif len(roots) == 0:
     root = np.argmax(scores[0,:])
+    scores[1:,0] = 0
     scores[root] = 0
     scores[root,0] = 1
     return chuliu_edmonds(scores)
