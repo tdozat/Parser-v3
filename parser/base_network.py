@@ -227,6 +227,9 @@ class BaseNetwork(object):
                 current_accuracy *= .5
                 current_accuracy += .5*dev_outputs.get_current_accuracy()
                 if current_accuracy >= best_accuracy:
+                  with open('debug.log', 'w') as f:
+                    with tf.variable_scope(self.classname + '/RNN-0/RNN_FW/Loop', reuse=True):
+                      f.write('{}\n'.format(sess.run(tf.get_variable('Initial_state'))))
                   steps_since_best = 0
                   best_accuracy = current_accuracy
                   if self.save_model:
@@ -313,6 +316,9 @@ class BaseNetwork(object):
     with tf.Session(config=config) as sess:
       #sess.run(tf.global_variables_initializer())
       saver.restore(sess, tf.train.latest_checkpoint(self.save_dir))
+      with open('debug.log', 'a') as f:
+        with tf.variable_scope(self.classname + '/RNN-0/RNN_FW/Loop', reuse=True):
+          f.write('{}\n'.format(sess.run(tf.get_variable('Initial_state'))))
       if len(conllu_files) == 1 or output_filename is not None:
         self.parse_file(parseset, parse_outputs, sess, output_dir=output_dir, output_filename=output_filename)
       else:
@@ -358,8 +364,6 @@ class BaseNetwork(object):
 
     probability_tensors = graph_outputs.probabilities
     graph_outputs.restart_timer()
-    with open('debug.log', 'w') as f:
-      f.write('{}'.format(dataset.conllu_files))
     for input_filename in dataset.conllu_files:
       for i, indices in enumerate(dataset.batch_iterator(shuffle=False)):
         tokens, lengths = dataset.get_tokens(indices)

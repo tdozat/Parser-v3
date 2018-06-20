@@ -73,7 +73,6 @@ class CoNLLUDataset(set):
   def load_next(self, file_idx=None):
     """"""
     
-    print('Loading next batch...')
     if self._cur_file_idx == -1 or len(self.conllu_files) > 1:
       self.reset()
     

@@ -47,7 +47,10 @@ class ParserNetwork(BaseNetwork):
         non_pos_tensors = [input_vocab.get_input_tensor(reuse=reuse) for input_vocab in self.input_vocabs if 'POS' not in input_vocab.classname]
         if pos_tensors:
           pos_tensors = tf.add_n(pos_tensors)
-          pos_tensors = [pos_vocabs[0].drop_func(pos_tensors, pos_vocabs[0].embed_keep_prob if not reuse else 1)]
+          if not reuse:
+            pos_tensors = [pos_vocabs[0].drop_func(pos_tensors, pos_vocabs[0].embed_keep_prob)]
+          else:
+            pos_tensors = [pos_tensors]
         input_tensors = non_pos_tensors + pos_tensors
       else:
         input_tensors = [input_vocab.get_input_tensor(reuse=reuse) for input_vocab in self.input_vocabs]

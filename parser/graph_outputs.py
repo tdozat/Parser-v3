@@ -147,6 +147,8 @@ class GraphOutputs(object):
       predictions['lemma'] = lemma_preds
     if 'upos' in probabilities:
       upos_probs = probabilities['upos']
+      #print(upos_probs[0,1])
+      #input()
       upos_preds = np.argmax(upos_probs, axis=-1)
       predictions['upos'] = upos_preds
     if 'xpos' in probabilities:
@@ -168,6 +170,8 @@ class GraphOutputs(object):
         try:
           dephead_preds = np.zeros(dephead_probs.shape[:2], dtype=np.int32)
           for i, (_dephead_probs, length) in enumerate(zip(dephead_probs, lengths)):
+            #print(_dephead_probs)
+            #input()
             cle = chuliu_edmonds_one_root(_dephead_probs[:length, :length])
             dephead_preds[i, :length] = cle
         except:
