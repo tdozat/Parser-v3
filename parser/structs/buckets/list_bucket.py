@@ -74,9 +74,9 @@ class ListBucket(BaseBucket):
     return
   
   #=============================================================
-  def set_placeholders(self, indices, feed_dict={}):
+  def set_placeholders(self, indices, maxlen, feed_dict={}):
     """"""
     
-    feed_dict[self.placeholder] = self.data[indices]
+    feed_dict[self.placeholder] = self.data[indices, :maxlen]
     return feed_dict
   

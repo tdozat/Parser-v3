@@ -110,6 +110,7 @@ def RNN(layer, recur_size, conv_width=0, recur_func=nonlin.relu, conv_keep_prob=
 def LSTM(layer, recur_size, seq_lengths, conv_width=0, recur_func=nonlin.tanh, conv_keep_prob=1., recur_keep_prob=1., recur_include_prob=1., cifg=False, highway=False, highway_func=tf.identity):
   """"""
   
+  #max_length = tf.reduce_max(seq_lengths)
   batch_size, bucket_size, input_size = nn.get_sizes(layer)
   gate_size = (3-cifg)*recur_size
   highway_size = highway*2*recur_size
@@ -145,7 +146,7 @@ def LSTM(layer, recur_size, seq_lengths, conv_width=0, recur_func=nonlin.tanh, c
     # Set up the loop
     #-------------------------------------------------------------
     def cond(i, *args):
-      return i < bucket_size
+      return i < bucket_size 
     #-------------------------------------------------------------
     def body(i, last_state, last_state_sequence):
       last_hidden, last_cell = tf.split(last_state, 2, axis=1)

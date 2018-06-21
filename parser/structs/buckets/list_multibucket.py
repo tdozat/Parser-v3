@@ -93,16 +93,16 @@ class ListMultibucket(BaseMultibucket, list):
     
     # Open the buckets
     shape = len(self._lengths)
-    dtype=[('bucket', 'i4'), ('sequence', 'i4')]
+    dtype=[('bucket', 'i4'), ('sequence', 'i4'), ('length', 'i4')]
     data = np.zeros(shape, dtype=dtype)
     for bucket in self:
       bucket.open()
     
     # Add sentences to them
-    for i, indices in enumerate(self._indices):
+    for i, (indices, length) in enumerate(zip(self._indices, self._lengths)):
       bucket_index = len2bkt[len(indices)]
       sequence_index = self[bucket_index].add(indices)
-      data[i] = (bucket_index, sequence_index)
+      data[i] = (bucket_index, sequence_index, length)
     
     # Close the buckets
     for bucket in self:
@@ -123,14 +123,15 @@ class ListMultibucket(BaseMultibucket, list):
       if i in unique_bucket_indices:
         bucket_i_indices = np.where(bucket_indices == i)[0]
         bucket_i_sequence_indices = subdata['sequence'][bucket_i_indices]
-        self[i].set_placeholders(bucket_i_sequence_indices, feed_dict=feed_dict)
+        maxlen = np.max(subdata['length'][bucket_i_indices])
+        self[i].set_placeholders(bucket_i_sequence_indices, maxlen, feed_dict=feed_dict)
         bucket_sequence_indices.append(bucket_i_indices)
         
     for i in six.moves.range(len(self)):
       if i not in unique_bucket_indices:
         bucket_i_indices = len(bucket_indices)+i
         bucket_i_sequence_indices = np.array([0], dtype=np.int32)
-        self[i].set_placeholders(bucket_i_sequence_indices, feed_dict=feed_dict)
+        self[i].set_placeholders(bucket_i_sequence_indices, 1, feed_dict=feed_dict)
         bucket_sequence_indices.append(bucket_i_indices)
     
     bucket_sequence_indices = np.hstack(bucket_sequence_indices)
