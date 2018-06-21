@@ -117,6 +117,13 @@ def less(input1, input2, dtype=None):
   return tf.where(tf.less(input1, input2), ones, zeros)
 
 #===============================================================
+def not_equal(input1, input2, dtype=None):
+  
+  ones = tf.ones_like(input1, dtype=dtype)
+  zeros = tf.zeros_like(input1, dtype=dtype)
+  return tf.where(tf.not_equal(input1, input2), ones, zeros)
+
+#===============================================================
 def equal(input1, input2, dtype=None):
   
   ones = tf.ones_like(input1, dtype=dtype)
@@ -128,6 +135,20 @@ def where(condition, x, y, dtype=tf.float32):
   
   ones = tf.ones_like(condition, dtype=dtype)
   return tf.where(condition, x*ones, y*ones)
+
+#===============================================================
+def ones(shape, dtype=tf.float32):
+  
+  if isinstance(shape, (tuple, list)):
+    shape = tf.stack(shape)
+  return tf.ones(shape, dtype=dtype)
+
+#===============================================================
+def zeros(shape, dtype=tf.float32):
+  
+  if isinstance(shape, (tuple, list)):
+    shape = tf.stack(shape)
+  return tf.zeros(shape, dtype=dtype)
 
 #===============================================================
 def tile(inputs, multiples):

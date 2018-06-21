@@ -53,7 +53,7 @@ class ElmoNetwork(BaseNetwork):
     batch_size, bucket_size, input_size = nn.get_sizes(layer)
     layer *= input_size / (n_nonzero + tf.constant(1e-12))
     
-    token_weights = nn.greater(self.id_vocab.placeholder, 0)
+    token_weights = nn.greater(self.id_vocab.placeholder, 0, dtype=tf.int32)
     tokens_per_sequence = tf.reduce_sum(token_weights, axis=1)
     n_tokens = tf.reduce_sum(tokens_per_sequence)
     n_sequences = tf.count_nonzero(tokens_per_sequence)
@@ -117,14 +117,14 @@ class ElmoNetwork(BaseNetwork):
         layer = tf.concat([layer*rev_layer, layer, rev_layer], axis=2)
       else:
         layer = tf.concat([layer, rev_layer], axis=2)
-    #input_vocabs = {vocab.field: vocab for vocab in self.input_vocabs}
+    
     output_vocabs = {vocab.field: vocab for vocab in self.output_vocabs}
     outputs = {}
     with tf.variable_scope('Classifiers'):
       if 'form' in output_vocabs:
         vocab = output_vocabs['form']
-        outputs[vocab.field] = vocab.get_linear_classifier(
-          layer,
+        outputs[vocab.field] = vocab.get_sampled_linear_classifier(
+          layer, self.n_samples,
           token_weights=token_weights,
           reuse=reuse)
         self._evals.add('form')
@@ -144,3 +144,7 @@ class ElmoNetwork(BaseNetwork):
         self._evals.add('xpos')
     return outputs, tokens
   
+  #=============================================================
+  @property
+  def n_samples(self):
+    return self._config.getint(self, 'n_samples')

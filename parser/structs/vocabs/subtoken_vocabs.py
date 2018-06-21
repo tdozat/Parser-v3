@@ -20,6 +20,7 @@ from __future__ import division
 from __future__ import print_function
 import six
 
+import re
 import os
 import codecs
 from collections import Counter
@@ -166,7 +167,9 @@ class SubtokenVocab(CountVocab):
         for line in f:
           line = line.rstrip()
           if line:
-            token, _ = line.split()
+            match = re.match('(.*)\s([0-9]*)', line)
+            token = match.group(1)
+            count = int(match.group(2))
             self._count(token)
       self.index_by_counts(dump=True)
       return True

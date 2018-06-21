@@ -125,6 +125,104 @@ class TokenVocab(CountVocab):
     return outputs
   
   #=============================================================
+  def get_sampled_linear_classifier(self, layer, n_samples, token_weights=None, variable_scope=None, reuse=False):
+    """"""
+    
+    recur_layer = layer
+    hidden_keep_prob = 1 if reuse else self.hidden_keep_prob
+    with tf.variable_scope(variable_scope or self.classname):
+      for i in six.moves.range(0, self.n_layers):
+        with tf.variable_scope('FC-%d' % i):
+          layer = classifiers.hidden(layer, self.hidden_size,
+                                    hidden_func=self.hidden_func,
+                                    hidden_keep_prob=hidden_keep_prob)
+      batch_size, bucket_size, input_size = nn.get_sizes(layer)
+      layer = nn.dropout(layer, hidden_keep_prob, noise_shape=[batch_size, 1, input_size])
+      layer = nn.reshape(layer, [-1, input_size])
+
+
+      with tf.variable_scope('Classifier'):
+        with tf.device('/cpu:0'):
+          weights = tf.get_variable('Weights', shape=[len(self), input_size], initializer=tf.zeros_initializer)
+          biases = tf.get_variable('Biases', shape=len(self), initializer=tf.zeros_initializer)
+
+          # (nm x 1)
+          targets = nn.reshape(self.placeholder, [-1, 1])
+          # (s)
+          samples, _, _ = tf.nn.log_uniform_candidate_sampler(nn.zeros([bucket_size,1], dtype=tf.int64), 1, n_samples, unique=True, range_max=len(self))
+          # (1 x s)
+          samples = tf.expand_dims(samples, 0)
+          # (nm x s)
+          samples = tf.to_int32(nn.tile(samples, [batch_size*bucket_size, 1]))
+          # (nm x s)
+          sample_weights = tf.to_float(nn.not_equal(samples, targets))
+          # (nm x 1+s)
+          cands = tf.stop_gradient(tf.concat([targets, samples], axis=-1))
+          # (nm x 1), (nm x s) -> (nm x 1+s)
+          cand_weights = tf.stop_gradient(tf.concat([nn.ones([batch_size*bucket_size, 1]), sample_weights], axis=-1))
+          # (c x d), (nm x 1+s) -> (nm x 1+s x d)
+          weights = tf.nn.embedding_lookup(weights, cands)
+          # (c), (nm x 1+s) -> (nm x 1+s)
+          biases = tf.nn.embedding_lookup(biases, cands)
+          # (n x m x d) -> (nm x d x 1)
+        layer_reshaped = nn.reshape(layer, [-1, input_size, 1])
+        # (nm x 1+s x d) * (nm x d x 1) -> (nm x 1+s x 1)
+        logits = tf.matmul(weights, layer_reshaped)
+        # (nm x 1+s x 1) -> (nm x 1+s)
+        logits = tf.squeeze(logits, -1)
+   
+    #-----------------------------------------------------------
+    # Compute probabilities/cross entropy
+    # (nm x 1+s)
+    logits = logits - tf.reduce_max(logits, axis=-1, keep_dims=True)
+    # (nm x 1+s)
+    exp_logits = tf.exp(logits) * cand_weights
+    # (nm x 1)
+    exp_logit_sum = tf.reduce_sum(exp_logits, axis=-1, keep_dims=True)
+    # (nm x 1+s)
+    probabilities = exp_logits / exp_logit_sum
+    # (nm x 1+s) -> (n x m x 1+s)
+    probabilities = nn.reshape(probabilities, [batch_size, bucket_size, 1+n_samples])
+    # (nm x 1+s) -> (n x m x 1+s)
+    samples = nn.reshape(samples, [batch_size, bucket_size, 1+n_samples])
+    # (nm x 1+s) -> (nm x 1), (nm x s)
+    target_logits, _ = tf.split(logits, [1, n_samples], axis=1)
+    # (nm x 1) - (nm x 1) -> (nm x 1)
+    loss = tf.log(exp_logit_sum) - target_logits
+    # (n x m) -> (nm x 1)
+    token_weights1D = tf.to_float(nn.reshape(token_weights, [-1,1]))
+    # (nm x 1) -> ()
+    loss = tf.reduce_sum(loss*token_weights1D) / tf.reduce_sum(token_weights1D)
+    
+    #-----------------------------------------------------------
+    # Compute predictions/accuracy
+    # (nm x 1+s) -> (n x m x 1+s)
+    logits = nn.reshape(logits, [batch_size, bucket_size, -1])
+    # (n x m x 1+s) -> (n x m)
+    predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
+    # (n x m) (*) (n x m) -> (n x m)
+    correct_tokens = nn.equal(predictions, 0) * token_weights
+    # (n x m) -> (n)
+    tokens_per_sequence = tf.reduce_sum(token_weights, axis=-1)
+    # (n x m) -> (n)
+    correct_tokens_per_sequence = tf.reduce_sum(correct_tokens, axis=-1)
+    # (n), (n) -> (n)
+    correct_sequences = nn.equal(tokens_per_sequence, correct_tokens_per_sequence)
+    
+    #-----------------------------------------------------------
+    # Populate the output dictionary
+    outputs = {}
+    outputs['recur_layer'] = recur_layer
+    outputs['targets'] = targets
+    outputs['probabilities'] = tf.tuple([samples, probabilities])
+    outputs['loss'] = loss
+    
+    outputs['predictions'] = predictions
+    outputs['n_correct_tokens'] = tf.reduce_sum(correct_tokens)
+    outputs['n_correct_sequences'] = tf.reduce_sum(correct_sequences)
+    return outputs
+    
+  #=============================================================
   def get_bilinear_classifier(self, layer, outputs, token_weights, variable_scope=None, reuse=False):
     """"""
     

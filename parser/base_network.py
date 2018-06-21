@@ -89,7 +89,7 @@ class BaseNetwork(object):
         extant_vocabs[output_vocab_classname] = vocab
 
     self._throughput_vocabs = set()
-    for throughput_vocab_classname in self.output_vocab_classes:
+    for throughput_vocab_classname in self.throughput_vocab_classes:
       if throughput_vocab_classname in extant_vocabs:
         self._throughput_vocabs.add(extant_vocabs[throughput_vocab_classname])
       else:
@@ -227,9 +227,9 @@ class BaseNetwork(object):
                 current_accuracy *= .5
                 current_accuracy += .5*dev_outputs.get_current_accuracy()
                 if current_accuracy >= best_accuracy:
-                  with open('debug.log', 'w') as f:
-                    with tf.variable_scope(self.classname + '/RNN-0/RNN_FW/Loop', reuse=True):
-                      f.write('{}\n'.format(sess.run(tf.get_variable('Initial_state'))))
+                  #with open('debug.log', 'w') as f:
+                  #  with tf.variable_scope(self.classname + '/RNN-0/RNN_FW/Loop', reuse=True):
+                  #    f.write('{}\n'.format(sess.run(tf.get_variable('Initial_state'))))
                   steps_since_best = 0
                   best_accuracy = current_accuracy
                   if self.save_model:

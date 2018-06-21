@@ -159,8 +159,9 @@ def LSTM(layer, recur_size, seq_lengths, conv_width=0, recur_func=nonlin.tanh, c
         current_hidden = zone_mask*current_hidden + (1-zone_mask)*last_hidden
         current_cell = zone_mask*current_cell + (1-zone_mask)*last_cell
       current_state = tf.concat([current_hidden, current_cell], 1)
-      current_state = tf.where(i < seq_lengths, current_state, null_state)
-      current_state_sequence = last_state_sequence.write(i, tf.where(i < seq_lengths, current_state, null_state))
+      current_state_sequence = last_state_sequence.write(i, current_state)
+      #current_state = tf.where(i < seq_lengths, current_state, null_state)
+      #current_state_sequence = last_state_sequence.write(i, tf.where(i < seq_lengths, current_state, null_state))
       return (i+1, current_state, current_state_sequence)
     #-------------------------------------------------------------
     loop_vars = (i, initial_state, state_sequence)

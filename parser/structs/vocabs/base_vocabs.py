@@ -20,6 +20,7 @@ from __future__ import division
 from __future__ import print_function
 import six
 
+import re
 import os
 import codecs
 from collections import Counter
@@ -287,7 +288,9 @@ class CountVocab(SetVocab):
       for line in f:
         line = line.rstrip()
         if line:
-          token, count = line.split()
+          match = re.match('(.*)\s([0-9]*)', line)
+          token = match.group(1)
+          count = int(match.group(2))
           self.counts[token] = int(count)
     self.index_by_counts(dump=dump)
     return True

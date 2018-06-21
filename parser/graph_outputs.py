@@ -139,8 +139,13 @@ class GraphOutputs(object):
     
     if 'form' in probabilities:
       form_probs = probabilities['form']
-      form_preds = np.argmax(form_probs, axis=-1)
-      predictions['form'] = form_preds
+      if isinstance(form_probs, tuple):
+        form_samples, form_probs = form_probs
+        form_preds = np.argmax(form_probs, axis=-1)
+        predictions['form'] = form_samples[np.arange(len(form_preds)), form_preds]
+      else:
+        form_preds = np.argmax(form_probs, axis=-1)
+        predictions['form'] = form_preds
     if 'lemma' in probabilities:
       lemma_probs = probabilities['lemma']
       lemma_preds = np.argmax(lemma_probs, axis=-1)
