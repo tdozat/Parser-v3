@@ -151,7 +151,7 @@ class BaseNetwork(object):
     amsgrad_train_tensors = [amsgrad_op, train_outputs.accuracies]
     dev_tensors = dev_outputs.accuracies
     # I think this needs to come after the optimizers
-    if self.save_model:
+    if self.save_model_after_improvement or self.save_model_after_training:
       all_variables = set(tf.global_variables(scope=self.classname))
       non_save_variables = set(tf.get_collection('non_save_variables'))
       save_variables = all_variables - non_save_variables
@@ -214,7 +214,10 @@ class BaseNetwork(object):
               current_optimizer = 'AMSGrad'
             for batch in trainset.batch_iterator(shuffle=True):
               train_outputs.restart_timer()
+              start_time = time.time()
               feed_dict = trainset.set_placeholders(batch)
+              with open('debug.log', 'a') as f:
+                f.write('{}: {}\n'.format(current_step, time.time() - start_time))
               _, train_scores = sess.run(train_tensors, feed_dict=feed_dict)
               train_outputs.update_history(train_scores)
               current_step += 1
@@ -232,7 +235,7 @@ class BaseNetwork(object):
                   #    f.write('{}\n'.format(sess.run(tf.get_variable('Initial_state'))))
                   steps_since_best = 0
                   best_accuracy = current_accuracy
-                  if self.save_model:
+                  if self.save_model_after_improvement:
                     saver.save(sess, os.path.join(self.save_dir, 'ckpt'), global_step=self.global_step, write_meta_graph=False)
                   if self.parse_datasets:
                     self.parse_files(devset, dev_outputs, sess, print_time=False)
@@ -265,6 +268,8 @@ class BaseNetwork(object):
             trainset.load_next()
           with open(os.path.join(self.save_dir, 'SUCCESS'), 'w') as f:
             pass
+          if self.save_model_after_training:
+            saver.save(sess, os.path.join(self.save_dir, 'ckpt'), global_step=self.global_step, write_meta_graph=False)
         except KeyboardInterrupt:
           pass
 
@@ -543,8 +548,11 @@ class BaseNetwork(object):
   def parse_datasets(self):
     return self._config.getboolean(self, 'parse_datasets')
   @property
-  def save_model(self):
-    return self._config.getboolean(self, 'save_model')
+  def save_model_after_improvement(self):
+    return self._config.getboolean(self, 'save_model_after_improvement')
+  @property
+  def save_model_after_training(self):
+    return self._config.getboolean(self, 'save_model_after_training')
   @property
   def classname(self):
     return self.__class__.__name__

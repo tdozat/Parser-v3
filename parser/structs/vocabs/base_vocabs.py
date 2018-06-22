@@ -24,6 +24,7 @@ import re
 import os
 import codecs
 from collections import Counter
+from collections import defaultdict as DefaultDict
 
 import numpy as np
 import tensorflow as tf
@@ -51,10 +52,6 @@ class BaseVocab(object):
     self.placeholder = tf.placeholder(tf.int32, placeholder_shape, name=self.classname)
     self._config = config
     return
-
-  #=============================================================
-  def __call__(self):
-    raise NotImplementedError('%s has no __call__' % self.classname)
 
   #=============================================================
   def add_sequence(self, tokens):
@@ -315,3 +312,16 @@ class CountVocab(SetVocab):
   @property
   def max_embed_count(self):
     return self._config.getint(self, 'max_embed_count')
+
+#***************************************************************
+class DictVocab(BaseVocab):
+  """"""
+
+  #=============================================================
+  def __init__(self, *args, **kwargs):
+    """"""
+
+    super(DictVocab, self).__init__(*args, **kwargs)
+    self._counts = DefaultDict(Counter)
+
+

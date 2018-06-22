@@ -171,6 +171,7 @@ class SubtokenVocab(CountVocab):
             token = match.group(1)
             count = int(match.group(2))
             self._count(token)
+            self._count(token.upper())
       self.index_by_counts(dump=True)
       return True
   

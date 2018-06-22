@@ -142,9 +142,11 @@ class TokenVocab(CountVocab):
 
 
       with tf.variable_scope('Classifier'):
-        #with tf.device('/cpu:0'):
-        weights = tf.get_variable('Weights', shape=[len(self), input_size], initializer=tf.zeros_initializer)
-        biases = tf.get_variable('Biases', shape=len(self), initializer=tf.zeros_initializer)
+        with tf.device('/cpu:0'):
+          weights = tf.get_variable('Weights', shape=[len(self), input_size], initializer=tf.zeros_initializer)
+          biases = tf.get_variable('Biases', shape=len(self), initializer=tf.zeros_initializer)
+          tf.add_to_collection('non_save_variables', weights)
+          tf.add_to_collection('non_save_variables', biases)
 
         # (nm x 1)
         targets = nn.reshape(self.placeholder, [-1, 1])
