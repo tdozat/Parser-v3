@@ -105,7 +105,7 @@ class BaseNetwork(object):
     return
 
   #=============================================================
-  def train(self, load=False):
+  def train(self, load=False, noscreen=False):
     """"""
 
     trainset = conllu_dataset.CoNLLUTrainset(self.vocabs,
@@ -165,43 +165,132 @@ class BaseNetwork(object):
       for saver, path in zip(input_network_savers, input_network_paths):
         saver.restore(sess, path)
       sess.run(tf.global_variables_initializer())
-      #---------------------------------------------------------
-      def run(stdscr):
+      if not noscreen:
+        #---------------------------------------------------------
+        def run(stdscr):
+          current_optimizer = 'Adam'
+          train_tensors = adam_train_tensors
+          current_step = 0
+          curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLACK)
+          curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
+          curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK)
+          curses.init_pair(4, curses.COLOR_GREEN, curses.COLOR_BLACK)
+          curses.init_pair(5, curses.COLOR_CYAN, curses.COLOR_BLACK)
+          curses.init_pair(6, curses.COLOR_BLUE, curses.COLOR_BLACK)
+          curses.init_pair(7, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
+          stdscr.clrtoeol()
+          stdscr.addstr('\t')
+          stdscr.addstr('{}\n'.format(self.save_dir), curses.A_STANDOUT)
+          stdscr.clrtoeol()
+          stdscr.addstr('\t')
+          stdscr.addstr('GPU: {}\n'.format(self.cuda_visible_devices), curses.color_pair(1) | curses.A_BOLD)
+          stdscr.clrtoeol()
+          stdscr.addstr('\t')
+          stdscr.addstr('Current optimizer: {}\n'.format(current_optimizer), curses.color_pair(1) | curses.A_BOLD)
+          stdscr.clrtoeol()
+          stdscr.addstr('\t')
+          stdscr.addstr('Epoch: {:3d}'.format(0), curses.color_pair(1) | curses.A_BOLD)
+          stdscr.addstr(' | ')
+          stdscr.addstr('Step: {:5d}\n'.format(0), curses.color_pair(1) | curses.A_BOLD)
+          stdscr.clrtoeol()
+          stdscr.addstr('\t')
+          stdscr.addstr('Moving acc: {:5.2f}'.format(0.), curses.color_pair(1) | curses.A_BOLD)
+          stdscr.addstr(' | ')
+          stdscr.addstr('Best moving acc: {:5.2f}\n'.format(0.), curses.color_pair(1) | curses.A_BOLD)
+          stdscr.clrtoeol()
+          stdscr.addstr('\t')
+          stdscr.addstr('Steps since improvement: {:4d}\n'.format(0),  curses.color_pair(1) | curses.A_BOLD)
+          stdscr.clrtoeol()
+          stdscr.move(2,0)
+          stdscr.refresh()
+          try:
+            current_epoch = 0
+            best_accuracy = 0
+            current_accuracy = 0
+            steps_since_best = 0
+            while (not self.max_steps or current_step < self.max_steps) and \
+                  (not self.max_steps_without_improvement or steps_since_best < self.max_steps_without_improvement) and \
+                  (not self.n_passes or current_epoch < len(trainset.conllu_files)*self.n_passes):
+              if steps_since_best > .1*self.max_steps_without_improvement and self.switch_optimizers:
+                train_tensors = amsgrad_train_tensors
+                current_optimizer = 'AMSGrad'
+              for batch in trainset.batch_iterator(shuffle=True):
+                train_outputs.restart_timer()
+                start_time = time.time()
+                feed_dict = trainset.set_placeholders(batch)
+                _, train_scores = sess.run(train_tensors, feed_dict=feed_dict)
+                train_outputs.update_history(train_scores)
+                current_step += 1
+                if current_step % self.print_every == 0:
+                  for batch in devset.batch_iterator(shuffle=False):
+                    dev_outputs.restart_timer()
+                    feed_dict = devset.set_placeholders(batch)
+                    dev_scores = sess.run(dev_tensors, feed_dict=feed_dict)
+                    dev_outputs.update_history(dev_scores)
+                  current_accuracy *= .5
+                  current_accuracy += .5*dev_outputs.get_current_accuracy()
+                  if current_accuracy >= best_accuracy:
+                    steps_since_best = 0
+                    best_accuracy = current_accuracy
+                    if self.save_model_after_improvement:
+                      saver.save(sess, os.path.join(self.save_dir, 'ckpt'), global_step=self.global_step, write_meta_graph=False)
+                    if self.parse_datasets:
+                      self.parse_files(devset, dev_outputs, sess, print_time=False)
+                      self.parse_files(testset, dev_outputs, sess, print_time=False)
+                  else:
+                    steps_since_best += self.print_every
+                  current_epoch = sess.run(self.global_step)
+                  stdscr.addstr('\t')
+                  stdscr.addstr('Current optimizer: {}\n'.format(current_optimizer), curses.color_pair(1) | curses.A_BOLD)
+                  stdscr.clrtoeol()
+                  stdscr.addstr('\t')
+                  stdscr.addstr('Epoch: {:3d}'.format(int(current_epoch)), curses.color_pair(1) | curses.A_BOLD)
+                  stdscr.addstr(' | ')
+                  stdscr.addstr('Step: {:5d}\n'.format(int(current_step)), curses.color_pair(1) | curses.A_BOLD)
+                  stdscr.clrtoeol()
+                  stdscr.addstr('\t')
+                  stdscr.addstr('Moving acc: {:5.2f}'.format(current_accuracy), curses.color_pair(1) | curses.A_BOLD)
+                  stdscr.addstr(' | ')
+                  stdscr.addstr('Best moving acc: {:5.2f}\n'.format(best_accuracy), curses.color_pair(1) | curses.A_BOLD)
+                  stdscr.clrtoeol()
+                  stdscr.addstr('\t')
+                  stdscr.addstr('Steps since improvement: {:4d}\n'.format(int(steps_since_best)),  curses.color_pair(1) | curses.A_BOLD)
+                  stdscr.clrtoeol()
+                  train_outputs.print_recent_history(stdscr)
+                  dev_outputs.print_recent_history(stdscr)
+                  stdscr.move(2,0)
+                  stdscr.refresh()
+              current_epoch = sess.run(self.global_step)
+              sess.run(update_step)
+              trainset.load_next()
+            with open(os.path.join(self.save_dir, 'SUCCESS'), 'w') as f:
+              pass
+          except KeyboardInterrupt:
+            pass
+
+          line = 0
+          stdscr.move(line,0)
+          instr = stdscr.instr().rstrip()
+          while instr:
+            screen_output.append(instr)
+            line += 1
+            stdscr.move(line,0)
+            instr = stdscr.instr().rstrip()
+        #---------------------------------------------------------
+        curses.wrapper(run)
+
+        with open(os.path.join(self.save_dir, 'scores.txt'), 'wb') as f:
+          #f.write(b'\n'.join(screen_output).decode('utf-8'))
+          f.write(b'\n'.join(screen_output))
+        print(b'\n'.join(screen_output).decode('utf-8'))
+      else:
         current_optimizer = 'Adam'
         train_tensors = adam_train_tensors
         current_step = 0
-        curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLACK)
-        curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
-        curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK)
-        curses.init_pair(4, curses.COLOR_GREEN, curses.COLOR_BLACK)
-        curses.init_pair(5, curses.COLOR_CYAN, curses.COLOR_BLACK)
-        curses.init_pair(6, curses.COLOR_BLUE, curses.COLOR_BLACK)
-        curses.init_pair(7, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
-        stdscr.clrtoeol()
-        stdscr.addstr('\t')
-        stdscr.addstr('{}\n'.format(self.save_dir), curses.A_STANDOUT)
-        stdscr.clrtoeol()
-        stdscr.addstr('\t')
-        stdscr.addstr('GPU: {}\n'.format(self.cuda_visible_devices), curses.color_pair(1) | curses.A_BOLD)
-        stdscr.clrtoeol()
-        stdscr.addstr('\t')
-        stdscr.addstr('Current optimizer: {}\n'.format(current_optimizer), curses.color_pair(1) | curses.A_BOLD)
-        stdscr.clrtoeol()
-        stdscr.addstr('\t')
-        stdscr.addstr('Epoch: {:3d}'.format(0), curses.color_pair(1) | curses.A_BOLD)
-        stdscr.addstr(' | ')
-        stdscr.addstr('Step: {:5d}\n'.format(0), curses.color_pair(1) | curses.A_BOLD)
-        stdscr.clrtoeol()
-        stdscr.addstr('\t')
-        stdscr.addstr('Moving acc: {:5.2f}'.format(0.), curses.color_pair(1) | curses.A_BOLD)
-        stdscr.addstr(' | ')
-        stdscr.addstr('Best moving acc: {:5.2f}\n'.format(0.), curses.color_pair(1) | curses.A_BOLD)
-        stdscr.clrtoeol()
-        stdscr.addstr('\t')
-        stdscr.addstr('Steps since improvement: {:4d}\n'.format(0),  curses.color_pair(1) | curses.A_BOLD)
-        stdscr.clrtoeol()
-        stdscr.move(2,0)
-        stdscr.refresh()
+        print('\t', end='')
+        print('{}\n'.format(self.save_dir), end='')
+        print('\t', end='')
+        print('GPU: {}\n'.format(self.cuda_visible_devices), end='')
         try:
           current_epoch = 0
           best_accuracy = 0
@@ -213,12 +302,12 @@ class BaseNetwork(object):
             if steps_since_best > .1*self.max_steps_without_improvement and self.switch_optimizers:
               train_tensors = amsgrad_train_tensors
               current_optimizer = 'AMSGrad'
+              print('\t', end='')
+              print('Current optimizer: {}\n'.format(current_optimizer), end='')
             for batch in trainset.batch_iterator(shuffle=True):
               train_outputs.restart_timer()
               start_time = time.time()
               feed_dict = trainset.set_placeholders(batch)
-              #with open('debug.log', 'a') as f:
-              #  f.write('{}: {}\n'.format(current_step, time.time() - start_time))
               _, train_scores = sess.run(train_tensors, feed_dict=feed_dict)
               train_outputs.update_history(train_scores)
               current_step += 1
@@ -231,9 +320,6 @@ class BaseNetwork(object):
                 current_accuracy *= .5
                 current_accuracy += .5*dev_outputs.get_current_accuracy()
                 if current_accuracy >= best_accuracy:
-                  #with open('debug.log', 'w') as f:
-                  #  with tf.variable_scope(self.classname + '/RNN-0/RNN_FW/Loop', reuse=True):
-                  #    f.write('{}\n'.format(sess.run(tf.get_variable('Initial_state'))))
                   steps_since_best = 0
                   best_accuracy = current_accuracy
                   if self.save_model_after_improvement:
@@ -244,52 +330,27 @@ class BaseNetwork(object):
                 else:
                   steps_since_best += self.print_every
                 current_epoch = sess.run(self.global_step)
-                stdscr.addstr('\t')
-                stdscr.addstr('Current optimizer: {}\n'.format(current_optimizer), curses.color_pair(1) | curses.A_BOLD)
-                stdscr.clrtoeol()
-                stdscr.addstr('\t')
-                stdscr.addstr('Epoch: {:3d}'.format(int(current_epoch)), curses.color_pair(1) | curses.A_BOLD)
-                stdscr.addstr(' | ')
-                stdscr.addstr('Step: {:5d}\n'.format(int(current_step)), curses.color_pair(1) | curses.A_BOLD)
-                stdscr.clrtoeol()
-                stdscr.addstr('\t')
-                stdscr.addstr('Moving acc: {:5.2f}'.format(current_accuracy), curses.color_pair(1) | curses.A_BOLD)
-                stdscr.addstr(' | ')
-                stdscr.addstr('Best moving acc: {:5.2f}\n'.format(best_accuracy), curses.color_pair(1) | curses.A_BOLD)
-                stdscr.clrtoeol()
-                stdscr.addstr('\t')
-                stdscr.addstr('Steps since improvement: {:4d}\n'.format(int(steps_since_best)),  curses.color_pair(1) | curses.A_BOLD)
-                stdscr.clrtoeol()
-                train_outputs.print_recent_history(stdscr)
-                dev_outputs.print_recent_history(stdscr)
-                stdscr.move(2,0)
-                stdscr.refresh()
+                print('\t', end='')
+                print('Epoch: {:3d}'.format(int(current_epoch)), end='')
+                print(' | ', end='')
+                print('Step: {:5d}\n'.format(int(current_step)), end='')
+                print('\t', end='')
+                print('Moving acc: {:5.2f}'.format(current_accuracy), end='')
+                print(' | ', end='')
+                print('Best moving acc: {:5.2f}\n'.format(best_accuracy), end='')
+                print('\t', end='')
+                print('Steps since improvement: {:4d}\n'.format(int(steps_since_best)), end='')
+                train_outputs.print_recent_history()
+                dev_outputs.print_recent_history()
             current_epoch = sess.run(self.global_step)
             sess.run(update_step)
             trainset.load_next()
           with open(os.path.join(self.save_dir, 'SUCCESS'), 'w') as f:
             pass
-          if self.save_model_after_training:
-            saver.save(sess, os.path.join(self.save_dir, 'ckpt'), global_step=self.global_step, write_meta_graph=False)
         except KeyboardInterrupt:
           pass
-
-        line = 0
-        stdscr.move(line,0)
-        instr = stdscr.instr().rstrip()
-        while instr:
-          screen_output.append(instr)
-          line += 1
-          stdscr.move(line,0)
-          instr = stdscr.instr().rstrip()
-      #---------------------------------------------------------
-      curses.wrapper(run)
-
-      with open(os.path.join(self.save_dir, 'scores.txt'), 'wb') as f:
-        #f.write(b'\n'.join(screen_output).decode('utf-8'))
-        f.write(b'\n'.join(screen_output))
-      print(b'\n'.join(screen_output).decode('utf-8'))
-
+      if self.save_model_after_training:
+        saver.save(sess, os.path.join(self.save_dir, 'ckpt'), global_step=self.global_step, write_meta_graph=False)
     return
 
   #=============================================================

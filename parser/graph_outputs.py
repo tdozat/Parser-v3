@@ -380,7 +380,7 @@ class GraphOutputs(object):
     return
   
   #=============================================================
-  def print_recent_history(self, stdscr):
+  def print_recent_history(self, stdscr=None):
     """"""
     
     n_batches = self.history['total']['n_batches']
@@ -393,8 +393,11 @@ class GraphOutputs(object):
     self.history['total']['total_time'] = 0
     
     #-----------------------------------------------------------
-    stdscr.addstr('{:5}\n'.format(self.dataset.title()), curses.color_pair(1) | curses.A_BOLD)
-    stdscr.clrtoeol()
+    if stdscr is not None:
+      stdscr.addstr('{:5}\n'.format(self.dataset.title()), curses.color_pair(1) | curses.A_BOLD)
+      stdscr.clrtoeol()
+    else:
+      print('{:5}\n'.format(self.dataset.title()), end='')
     
     for field, string in self._print_mapping:
       if field in self.history:
@@ -413,33 +416,23 @@ class GraphOutputs(object):
         loss = self.history[field]['loss'][-1]
         acc = self.history[field]['tokens'][-1]
         acc_seq = self.history[field]['sequences'][-1]
-        stdscr.addstr('{:5}'.format(string), curses.color_pair(6) | curses.A_BOLD)
-        stdscr.addstr(' | ')
-        stdscr.addstr('Loss: {:.2e}'.format(loss), curses.color_pair(3) | curses.A_BOLD)
-        stdscr.addstr(' | ')
-        stdscr.addstr('Acc: {:5.2f}'.format(acc), curses.color_pair(4) | curses.A_BOLD)
-        stdscr.addstr(' | ')
-        stdscr.addstr('Seq: {:5.2f}\n'.format(acc_seq), curses.color_pair(4) | curses.A_BOLD)
-        stdscr.clrtoeol()
-        #stdscr.addstr(' | ')
-        #stdscr.addstr('WGS: {:5.2f}\n'.format(100*np.sqrt((acc/100)**.75 * (acc_seq/100)**.25)), curses.color_pair(4) | curses.A_BOLD)
-        #if field in ('semgraph', 'semhead'):
-        #  stdscr.addstr('{:5}'.format('DEBUG'), curses.color_pair(6) | curses.A_BOLD)
-        #  stdscr.addstr(' | ')
-        #  stdscr.addstr('TP: {}'.format(int(tp)), curses.color_pair(2) | curses.A_BOLD)
-        #  stdscr.addstr(' | ')
-        #  stdscr.addstr('FP: {}'.format(self.history[field]['fp_tokens']), curses.color_pair(2) | curses.A_BOLD)
-        #  stdscr.addstr(' | ')
-        #  stdscr.addstr('FN: {}\n'.format(self.history[field]['fn_tokens']), curses.color_pair(2) | curses.A_BOLD)
-        #  stdscr.clrtoeol()
-        #if field in ('deptree', 'dephead'):
-        #  stdscr.addstr('{:5}'.format('DEBUG'), curses.color_pair(6) | curses.A_BOLD)
-        #  stdscr.addstr(' | ')
-        #  stdscr.addstr(': {}'.format(tokens), curses.color_pair(2) | curses.A_BOLD)
-        #  stdscr.addstr(' | ')
-        #  stdscr.addstr(': {}\n'.format(n_tokens), curses.color_pair(2) | curses.A_BOLD)
-        #  stdscr.clrtoeol()
-        
+        if stdscr is not None:
+          stdscr.addstr('{:5}'.format(string), curses.color_pair(6) | curses.A_BOLD)
+          stdscr.addstr(' | ')
+          stdscr.addstr('Loss: {:.2e}'.format(loss), curses.color_pair(3) | curses.A_BOLD)
+          stdscr.addstr(' | ')
+          stdscr.addstr('Acc: {:5.2f}'.format(acc), curses.color_pair(4) | curses.A_BOLD)
+          stdscr.addstr(' | ')
+          stdscr.addstr('Seq: {:5.2f}\n'.format(acc_seq), curses.color_pair(4) | curses.A_BOLD)
+          stdscr.clrtoeol()
+        else:
+          print('{:5}'.format(string), end='')
+          print(' | ', end='')
+          print('Loss: {:.2e}'.format(loss), end='')
+          print(' | ', end='')
+          print('Acc: {:5.2f}'.format(acc), end='')
+          print(' | ', end='')
+          print('Seq: {:5.2f}\n'.format(acc_seq), end='')
         for key, value in six.iteritems(self.history[field]):
           if hasattr(value, 'append'):
             value.append(0)
@@ -452,20 +445,30 @@ class GraphOutputs(object):
     tps = self.history['speed']['toks/sec'][-1]
     sps = self.history['speed']['seqs/sec'][-1]
     bps = self.history['speed']['bats/sec'][-1]
-    stdscr.clrtoeol()
-    stdscr.addstr('Speed', curses.color_pair(6) | curses.A_BOLD)
-    stdscr.addstr(' | ')
-    #stdscr.addstr('Toks/sec: {:7.1f}'.format(tps), curses.color_pair(5) | curses.A_BOLD)
-    #stdscr.addstr(' | ')
-    stdscr.addstr('Seqs/sec: {:6.1f}'.format(sps), curses.color_pair(5) | curses.A_BOLD)
-    stdscr.addstr(' | ')
-    stdscr.addstr('Bats/sec: {:4.2f}\n'.format(bps), curses.color_pair(5) | curses.A_BOLD)
-    stdscr.clrtoeol()
-    stdscr.addstr('Count', curses.color_pair(6) | curses.A_BOLD)
-    stdscr.addstr(' | ')
-    stdscr.addstr('Toks: {:6d}'.format(n_tokens), curses.color_pair(7) | curses.A_BOLD)
-    stdscr.addstr(' | ')
-    stdscr.addstr('Seqs: {:5d}\n'.format(n_sequences), curses.color_pair(7) | curses.A_BOLD)
+    if stdscr is not None:
+      stdscr.clrtoeol()
+      stdscr.addstr('Speed', curses.color_pair(6) | curses.A_BOLD)
+      stdscr.addstr(' | ')
+      stdscr.addstr('Seqs/sec: {:6.1f}'.format(sps), curses.color_pair(5) | curses.A_BOLD)
+      stdscr.addstr(' | ')
+      stdscr.addstr('Bats/sec: {:4.2f}\n'.format(bps), curses.color_pair(5) | curses.A_BOLD)
+      stdscr.clrtoeol()
+      stdscr.addstr('Count', curses.color_pair(6) | curses.A_BOLD)
+      stdscr.addstr(' | ')
+      stdscr.addstr('Toks: {:6d}'.format(n_tokens), curses.color_pair(7) | curses.A_BOLD)
+      stdscr.addstr(' | ')
+      stdscr.addstr('Seqs: {:5d}\n'.format(n_sequences), curses.color_pair(7) | curses.A_BOLD)
+    else:
+      print('Speed', end='')
+      print(' | ', end='')
+      print('Seqs/sec: {:6.1f}'.format(sps), end='')
+      print(' | ', end='')
+      print('Bats/sec: {:4.2f}\n'.format(bps), end='')
+      print('Count', end='')
+      print(' | ', end='')
+      print('Toks: {:6d}'.format(n_tokens), end='')
+      print(' | ', end='')
+      print('Seqs: {:5d}\n'.format(n_sequences), end='')
     filename = os.path.join(self.save_dir, '{}.pkl'.format(self.dataset))
     with open(filename, 'wb') as f:
       pkl.dump(self.history, f, protocol=pkl.HIGHEST_PROTOCOL)

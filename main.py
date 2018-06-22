@@ -75,6 +75,8 @@ def main():
   train_parser = subparsers.add_parser('train')
   train_parser.set_defaults(action=train)
   train_parser.add_argument('network_class')
+  train_parser.add_argument('--force', action='store_true')
+  train_parser.add_argument('--noscreen', action='store_true')
   train_parser.add_argument('--load', action='store_true')
   train_parser.add_argument('--config_file', default='')
   train_parser.add_argument('--randomize', nargs='?', const='hpo/config/default.csv')
@@ -102,6 +104,8 @@ def train(**kwargs):
   # Get the special arguments
   rand_file = kwargs.pop('randomize')
   load = kwargs.pop('load')
+  force = kwargs.pop('force')
+  noscreen = kwargs.pop('noscreen')
   save_dir = kwargs.pop('save_dir')
   save_metadir = kwargs.pop('save_metadir')
   network_class = kwargs.pop('network_class')
@@ -148,14 +152,14 @@ def train(**kwargs):
   
   # If not loading, ask the user if they want to overwrite the directory
   if not load and os.path.isdir(save_dir):
-    input_str = ''
-    while input_str not in ('y', 'n', 'yes', 'no'):
-      input_str = input('Save directory already exists. It will be deleted if you continue. Do you want to proceed? [Y/n] ').lower()
-    if input_str in ('n', 'no'):
-      print()
-      sys.exit(0)
-    else:
-      shutil.rmtree(save_dir)
+    if not force:
+      input_str = ''
+      while input_str not in ('y', 'n', 'yes', 'no'):
+        input_str = input('Save directory already exists. It will be deleted if you continue. Do you want to proceed? [Y/n] ').lower()
+      if input_str in ('n', 'no'):
+        print()
+        sys.exit(0)
+    shutil.rmtree(save_dir)
   
   # If the save_dir wasn't overwritten, load its config_file
   if os.path.isdir(save_dir):
@@ -172,7 +176,7 @@ def train(**kwargs):
   input_networks, networks = resolve_network_dependencies(config, network_class, network_list, {})
   NetworkClass = getattr(parser, network_class)
   network = NetworkClass(input_networks=input_networks, config=config)
-  network.train(load=load)
+  network.train(load=load, noscreen=noscreen)
   return
 
 #===============================================================
