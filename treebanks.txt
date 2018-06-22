@@ -1,0 +1,47 @@
+Ancient_Greek	grc	PROIEL
+English	en	LinES	ParTUT
+Chinese	zh
+Hungarian	hu
+Finnish	fi	FTB
+Arabic	ar
+Basque	eu
+Bulgarian	bg
+Catalan	ca
+Croatian	hr
+Czech	cs	CAC	CLTT
+Danish	da
+Dutch	nl	LassySmall
+Estonian	et
+French	fr	ParTUT	Sequoia
+Galician	gl	TreeGal
+German	de
+Gothic	got
+Greek	el
+Hebrew	he
+Hindi	hi
+Indonesian	id
+Irish	ga
+Italian	it	ParTUT
+Japanese	ja
+Kazakh	kk
+Korean	ko
+Latin	la	ITTB	PROIEL
+Latvian	lv
+Norwegian-Bokmaal	no_bokmaal
+Norwegian-Nynorsk	no_nynorsk
+Old_Church_Slavonic	cu
+Persian	fa
+Polish	pl
+Portuguese	pt	BR
+Romanian	ro
+Russian	ru	SynTagRus
+Slovak	sk
+Slovenian	sl	SST
+Spanish	es	AnCora
+Swedish	sv	LinES
+Turkish	tr
+Ukrainian	uk
+Urdu	ur
+Uyghur	ug
+Vietnamese	vi
+
