@@ -160,6 +160,7 @@ class BaseNetwork(object):
     screen_output = []
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
+    config.allow_soft_placement = True
     with tf.Session(config=config) as sess:
       for saver, path in zip(input_network_savers, input_network_paths):
         saver.restore(sess, path)
@@ -216,8 +217,8 @@ class BaseNetwork(object):
               train_outputs.restart_timer()
               start_time = time.time()
               feed_dict = trainset.set_placeholders(batch)
-              with open('debug.log', 'a') as f:
-                f.write('{}: {}\n'.format(current_step, time.time() - start_time))
+              #with open('debug.log', 'a') as f:
+              #  f.write('{}: {}\n'.format(current_step, time.time() - start_time))
               _, train_scores = sess.run(train_tensors, feed_dict=feed_dict)
               train_outputs.update_history(train_scores)
               current_step += 1
