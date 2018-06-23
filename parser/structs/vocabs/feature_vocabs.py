@@ -61,12 +61,13 @@ class FeatureVocab(BaseVocab):
     
     layers = []
     with tf.variable_scope(variable_scope or self.classname):
-      for i, vocab in enumerate(self):
-        with tf.variable_scope(str(vocab)):
-          layer = embeddings.token_embedding_lookup(self.len(vocab), self.embed_size,
-                                                    self.placeholder[i],
+      for i, feat in enumerate(self._feats):
+        with tf.variable_scope(str(feat)):
+          layer = embeddings.token_embedding_lookup(self.getlen(feat), self.embed_size,
+                                                    self.placeholder[:,:,i],
                                                     nonzero_init=nonzero_init,
                                                     reuse=reuse)
+          layers.append(layer)
       layer = tf.add_n(layers)
       if embed_keep_prob < 1:
         layer = self.drop_func(layer, embed_keep_prob)
@@ -230,6 +231,7 @@ class FeatureVocab(BaseVocab):
         f.write(u'[{}]\n'.format(feat))
         for token, count in self.sorted(counter):
           f.write(u'{}\t{}\n'.format(token, count))
+        f.write(u'\n')
     return
   
   #=============================================================
@@ -253,7 +255,7 @@ class FeatureVocab(BaseVocab):
         feat = None
         if line:
           featmatch = re.match('\[(.*)\]$', line)
-          match = re.match('(.*)\s([0-9]*)', line)
+          match = re.match('(.*)\s([0-9]+)', line)
           if featmatch:
             feat = featmatch.group(1)
             self._counts[feat] = Counter()
@@ -334,6 +336,19 @@ class FeatureVocab(BaseVocab):
     return (vocab for vocab in self._str2idx)
   
   #=============================================================
+  @property
+  def drop_func(self):
+    drop_func = self._config.getstr(self, 'drop_func')
+    if hasattr(embeddings, drop_func):
+      return getattr(embeddings, drop_func)
+    else:
+      raise AttributeError("module '{}' has no attribute '{}'".format(embeddings.__name__, drop_func))
+  @property
+  def embed_size(self):
+    return self._config.getint(self, 'embed_size')
+  @property
+  def embed_keep_prob(self):
+    return self._config.getfloat(self, 'embed_keep_prob')
   @property
   def hidden_func(self):
     hidden_func = self._config.getstr(self, 'hidden_func')
