@@ -22,6 +22,7 @@ import six
 
 import os
 import codecs
+import re
 from collections import Counter, OrderedDict
 from collections import defaultdict as DefaultDict
 
@@ -62,7 +63,8 @@ class FeatureVocab(BaseVocab):
     layers = []
     with tf.variable_scope(variable_scope or self.classname):
       for i, feat in enumerate(self._feats):
-        with tf.variable_scope(str(feat)):
+        vs_feat = str(feat).replace('[', '-RSB-').replace(']', '-LSB-')
+        with tf.variable_scope(vs_feat):
           layer = embeddings.token_embedding_lookup(self.getlen(feat), self.embed_size,
                                                     self.placeholder[:,:,i],
                                                     nonzero_init=nonzero_init,
@@ -92,7 +94,8 @@ class FeatureVocab(BaseVocab):
         predictions = []
         correct_tokens = []
         for i, feat in enumerate(self._feats):
-          with tf.variable_scope(feat):
+          vs_feat = str(feat).replace('[', '-RSB-').replace(']', '-LSB-')
+          with tf.variable_scope(vs_feat):
             logits = classifiers.linear_classifier(layer, self.getlen(feat), hidden_keep_prob=hidden_keep_prob)
             targets = self.placeholder[:,:,i]
             
@@ -254,8 +257,8 @@ class FeatureVocab(BaseVocab):
         line = line.rstrip()
         feat = None
         if line:
-          featmatch = re.match('\[(.*)\]$', line)
-          match = re.match('(.*)\s([0-9]+)', line)
+          featmatch = re.match('\[(.*)\]$', line) # matches '[feature]'
+          match = re.match('(.*)\s([0-9]+)', line) # matches 'value count'
           if featmatch:
             feat = featmatch.group(1)
             self._counts[feat] = Counter()

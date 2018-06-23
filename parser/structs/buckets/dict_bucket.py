@@ -82,9 +82,13 @@ class DictBucket(BaseBucket):
     data = np.zeros(shape, dtype=np.int32)
     # Add data to the index matrix
     if self.depth >= 0:
-      for i, sequence in enumerate(self._indices):
-        if sequence:
-          data[i, 0:len(sequence)] = sequence
+      try:
+        for i, sequence in enumerate(self._indices):
+          if sequence:
+            data[i, 0:len(sequence)] = sequence
+      except ValueError:
+        print('Expected shape: {}\nsequence: {}'.format([len(sequence), self.depth], sequence))
+        raise
     elif self.depth == -1:
       # for graphs, sequence should be list of (idx, val) pairs
       for i, sequence in enumerate(self._indices):
