@@ -54,6 +54,9 @@ class UPOSVocab(CoNLLUVocab):
 class XPOSVocab(CoNLLUVocab):
   _field = 'xpos'
   _conllu_idx = 4
+class UFeatsVocab(CoNLLUVocab):
+  _field = 'ufeats'
+  _conllu_idx = 5
 class DepheadVocab(CoNLLUVocab):
   _field = 'dephead'
   _conllu_idx = 6

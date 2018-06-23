@@ -152,14 +152,19 @@ class GraphOutputs(object):
       predictions['lemma'] = lemma_preds
     if 'upos' in probabilities:
       upos_probs = probabilities['upos']
-      #print(upos_probs[0,1])
-      #input()
       upos_preds = np.argmax(upos_probs, axis=-1)
       predictions['upos'] = upos_preds
     if 'xpos' in probabilities:
       xpos_probs = probabilities['xpos']
-      xpos_preds = np.argmax(xpos_probs, axis=-1)
+      if isinstance(xpos_probs, tuple):
+        xpos_preds = np.concatenate([np.argmax(xpos_prob_mat, axis=-1)[:,:,None] for xpos_prob_mat in xpos_probs], axis=-1)
+      else:
+        xpos_preds = np.argmax(xpos_probs, axis=-1)
       predictions['xpos'] = xpos_preds
+    if 'ufeats' in probabilities:
+      ufeats_probs = probabilities['ufeats']
+      ufeats_preds = np.concatenate([np.argmax(ufeats_prob_mat, axis=-1)[:,:,None] for ufeats_prob_mat in ufeats_probs], axis=-1)
+      predictions['ufeats'] = ufeats_preds
     #if 'head' in probabilities: # TODO MST algorithms
     #  head_probs = probabilities['head']
     #  head_preds = np.argmax(head_probs, axis=-1)

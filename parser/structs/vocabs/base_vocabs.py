@@ -270,7 +270,7 @@ class CountVocab(SetVocab):
   def load(self):
     """"""
 
-    # First check to see if it's saved in 
+    # First check to see if it's saved in the save_dir, then somewhere else
     dump = None
     if os.path.exists(self.vocab_savename):
       vocab_filename = self.vocab_savename
@@ -288,11 +288,12 @@ class CountVocab(SetVocab):
           match = re.match('(.*)\s([0-9]*)', line)
           token = match.group(1)
           count = int(match.group(2))
-          self.counts[token] = int(count)
+          self.counts[token] = count
     self.index_by_counts(dump=dump)
     return True
 
   #=============================================================
+  # TODO make this a staticmethod
   def sorted(self):
     return sorted(self.counts.most_common(), key=lambda x: (-x[1], x[0]))
 
@@ -312,16 +313,3 @@ class CountVocab(SetVocab):
   @property
   def max_embed_count(self):
     return self._config.getint(self, 'max_embed_count')
-
-#***************************************************************
-class DictVocab(BaseVocab):
-  """"""
-
-  #=============================================================
-  def __init__(self, *args, **kwargs):
-    """"""
-
-    super(DictVocab, self).__init__(*args, **kwargs)
-    self._counts = DefaultDict(Counter)
-
-
