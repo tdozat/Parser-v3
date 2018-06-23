@@ -28,7 +28,7 @@ from collections import defaultdict as DefaultDict
 import numpy as np
 import tensorflow as tf
 
-from parser.structs.vocabs.base_vocabs import SetVocab
+from parser.structs.vocabs.base_vocabs import BaseVocab
 from . import conllu_vocabs as cv
 
 from parser.neural import nn, nonlin, embeddings, classifiers
@@ -37,21 +37,21 @@ from parser.neural import nn, nonlin, embeddings, classifiers
 class FeatureVocab(BaseVocab):
   """"""
   
-  PAD_STR = ROOT_STR = UNK_STR = self.pad_str
-  PAD_IDX = ROOT_IDX = UNK_IDX = 0
   _save_str = 'feats'
   
   #=============================================================
-  def __init__(self, *args, **kwargs):
+  def __init__(self, *args, placeholder_shape=[None,None,None], **kwargs):
     """"""
     
-    super(FeatureVocab, self).__init__(*args, **kwargs)
+    super(FeatureVocab, self).__init__(*args, placeholder_shape=placeholder_shape, **kwargs)
     
     self._counts = DefaultDict(Counter)
-    self._keys = list()
-    self._key_set = set()
+    self._feats = list()
+    self._feat_set = set()
     self._str2idx = DefaultDict(dict)
     self._idx2str = DefaultDict(dict)
+    self.PAD_STR = self.ROOT_STR = self.UNK_STR = self.pad_str
+    self.PAD_IDX = self.ROOT_IDX = self.UNK_IDX = 0
     
   #=============================================================
   def get_input_tensor(self, embed_keep_prob=None, nonzero_init=True, variable_scope=None, reuse=True):
@@ -90,9 +90,9 @@ class FeatureVocab(BaseVocab):
         loss = []
         predictions = []
         correct_tokens = []
-        for i, key in enumerate(self._keys):
-          with tf.variable_scope(key):
-            logits = classifiers.linear_classifier(layer, self.getlen(key), hidden_keep_prob=hidden_keep_prob)
+        for i, feat in enumerate(self._feats):
+          with tf.variable_scope(feat):
+            logits = classifiers.linear_classifier(layer, self.getlen(feat), hidden_keep_prob=hidden_keep_prob)
             targets = self.placeholder[:,:,i]
             
             #---------------------------------------------------
@@ -107,7 +107,7 @@ class FeatureVocab(BaseVocab):
             # (n x m x c) -> (n x m)
             predictions.append(tf.argmax(logits, axis=-1, output_type=tf.int32))
             # (n x m) (*) (n x m) -> (n x m)
-            correct_tokens.append(nn.equal(targets, predictions))
+            correct_tokens.append(nn.equal(targets, predictions[-1]))
         # (n x m) x f -> (n x m x f)
         predictions = tf.stack(predictions, axis=-1)
         # (n x m) x f -> (n x m x f)
@@ -135,10 +135,10 @@ class FeatureVocab(BaseVocab):
     return outputs
   
   #=============================================================
-  def getlen(self, key):
+  def getlen(self, feat):
     """"""
     
-    return len(self._str2idx[key])
+    return len(self._str2idx[feat])
   
   #=============================================================
   # TODO make this compatible with zipped files
@@ -161,15 +161,16 @@ class FeatureVocab(BaseVocab):
       multitoken = multitoken.lower()
     multitoken = multitoken.split(self.separator)
     for i, token in enumerate(multitoken):
-      if self.keyed:
-        key, token = token.split('=')
-      else:
-        key = str(i)
-      
-      if key not in self._key_set:
-        self._keys.append(key)
-        self._key_set.add(key)
-      self._counts[key][token] += 1
+      if token != '_':
+        if self.keyed:
+          feat, token = token.split('=')
+        else:
+          feat = str(i)
+        
+        if feat not in self._feat_set:
+          self._feats.append(feat)
+          self._feat_set.add(feat)
+        self._counts[feat][token] += 1
     return
   
   #=============================================================
@@ -182,30 +183,21 @@ class FeatureVocab(BaseVocab):
   def token(self, index):
     """"""
     
-    assert len(self._keys) == len(index)
-    return self.separator.join([self[key, idx] for key, idx in zip(self._keys, index)])
+    assert isinstance(index[0], six.integer_types + (np.int32, np.int64))
+    return self[index]
   
   #=============================================================
-  def index(self, token):
+  def index(self, multitoken):
     """"""
     
-    if not self.cased:
-      multitoken = multitoken.lower()
-    multitoken = multitoken.split(self.separator)
-    if self.keyed:
-      key_dict = {}
-      for token in multitoken:
-        key, token = token.split('=')
-        key_dict[key] = token
-      return [self[key, key_dict.get(key, self.PAD_STR)] for key in self._keys]
-    else:
-      return [self[str(key), token] for key, token in enumerate(multitoken)]
+    assert isinstance(multitoken, six.string_types), 'FeatureVocab.index was passed {}'.format(multitoken)
+    return self[multitoken]
   
   #=============================================================
   def get_root(self):
     """"""
     
-    return [(vocab, self.ROOT_STR) for vocab in self]
+    return '_' if self.keyed else self.separator.join([self.ROOT_STR for _ in self._feats])
   
   #=============================================================
   @staticmethod
@@ -216,13 +208,13 @@ class FeatureVocab(BaseVocab):
   def index_by_counts(self, dump=True):
     """"""
     
-    for key, counter in six.moves.iteritems(self._counts):
-      self[key, self.PAD_STR] = 0
+    for feat, counter in six.iteritems(self._counts):
+      self[feat, self.PAD_STR] = 0
       cur_idx = 1
       for token, count in self.sorted(counter):
         if (not self.min_occur_count or count >= self.min_occur_count) and\
            (not self.max_embed_count or cur_idx < self.max_embed_count+1):
-          self[key, token] = cur_idx
+          self[feat, token] = cur_idx
           cur_idx += 1
     self._depth = len(self)
     if dump:
@@ -234,8 +226,8 @@ class FeatureVocab(BaseVocab):
     """"""
     
     with codecs.open(self.vocab_savename, 'w', encoding='utf-8', errors='ignore') as f:
-      for key, counter in six.moves.iteritems(self._counts):
-        f.write(u'[{}]\n'.format(key))
+      for feat, counter in six.iteritems(self._counts):
+        f.write(u'[{}]\n'.format(feat))
         for token, count in self.sorted(counter):
           f.write(u'{}\t{}\n'.format(token, count))
     return
@@ -258,43 +250,45 @@ class FeatureVocab(BaseVocab):
     with codecs.open(vocab_filename, encoding='utf-8', errors='ignore') as f:
       for line in f:
         line = line.rstrip()
-        key = None
+        feat = None
         if line:
-          keymatch = re.match('\[(.*)\]$', line)
+          featmatch = re.match('\[(.*)\]$', line)
           match = re.match('(.*)\s([0-9]*)', line)
-          if keymatch:
-            key = keymatch.group(1)
-            self._counts[key] = Counter()
+          if featmatch:
+            feat = featmatch.group(1)
+            self._counts[feat] = Counter()
           elif match:
             token = match.group(1)
             count = int(match.group(2))
-            self._counts[key][token] = count
+            self._counts[feat][token] = count
     self.index_by_counts(dump=dump)
     return True
   
   #=============================================================
   def __getitem__(self, key):
-    if not key:
-      return []
-    if len(key) == 1:
-      return [self[key[0]]]
-    
-    if isinstance(key[1], six.string_types):
-      vocab, key = key
-      if not self.cased and key != self.PAD_STR:
+    assert hasattr(key, '__iter__'), 'You gave FeatureVocab.__getitem__ {}'.format(key)
+    if isinstance(key, six.string_types):
+      if not self.cased:
         key = key.lower()
-      return self._str2idx[vocab].get(key, self.UNK_STR)
-    elif isinstance(key, six.integer_types + (np.int32, np.int64)):
-      vocab, key = key
+      if key == '_':
+        return [self.ROOT_IDX for _ in self._feats]
+      multitoken = key.split(self.separator)
       if self.keyed:
-        token = self._idx2str[vocab].get(key, self.UNK_IDX)
-        return '{}={}'.format(vocab, token)
+        key_dict = {}
+        for token in multitoken:
+          feat, token = token.split('=')
+          key_dict[feat] = token
+        return [self._str2idx[feat].get(key_dict[feat], self.UNK_IDX) if feat in key_dict else self.PAD_IDX for feat in self._feats]
       else:
-        return token
-    elif hasattr(key, '__iter__'):
-      return [self[k] for k in key]
+        return [self._str2idx[str(feat)].get(key, self.UNK_IDX) for feat, key in enumerate(multitoken)]
+    elif isinstance(key[0], six.integer_types + (np.int32, np.int64)):
+      if self.keyed:
+        multitoken = ['{}={}'.format(feat, self._idx2str[feat].get(key, self.UNK_STR)) for feat, key in zip(self._feats, key) if key != self.PAD_IDX]
+      else:
+        multitoken = [self._idx2str[feat].get(key, self.UNK_STR) for feat, key in enumerate(key)]
+      return self.separator.join(multitoken) or '_'
     else:
-      raise ValueError('key to {}.__getitem__ must be (iterable of) (string, string or integer) tuples'.format(self.classname))
+      return [self[k] for k in key]
   
   def __setitem__(self, key, value):
     if len(key) == 1:
@@ -341,6 +335,34 @@ class FeatureVocab(BaseVocab):
   
   #=============================================================
   @property
+  def hidden_func(self):
+    hidden_func = self._config.getstr(self, 'hidden_func')
+    if hasattr(nonlin, hidden_func):
+      return getattr(nonlin, hidden_func)
+    else:
+      raise AttributeError("module '{}' has no attribute '{}'".format(nonlin.__name__, hidden_func))
+  @property
+  def hidden_size(self):
+    return self._config.getint(self, 'hidden_size')
+  @property
+  def n_layers(self):
+    return self._config.getint(self, 'n_layers')
+  @property
+  def hidden_keep_prob(self):
+    return self._config.getfloat(self, 'hidden_keep_prob')
+  @property
+  def max_embed_count(self):
+    return self._config.getint(self, 'max_embed_count')
+  @property
+  def min_occur_count(self):
+    return self._config.getint(self, 'min_occur_count')
+  @property
+  def vocab_loadname(self):
+    return self._config.getstr(self, 'vocab_loadname')
+  @property
+  def vocab_savename(self):
+    return os.path.join(self.save_dir, self.field+'-'+self._save_str+'.lst')
+  @property
   def keyed(self):
     return self._config.getboolean(self, 'keyed')
   @property
@@ -352,7 +374,10 @@ class FeatureVocab(BaseVocab):
       return separator
   @property
   def pad_str(self):
-    return self._config.getstr(self, 'pad_str')
+    pad_str = self._config.getstr(self, 'pad_str')
+    if pad_str is None:
+      pad_str = ''
+    return pad_str
   @property
   def cased(self):
     return self._config.getboolean(self, 'cased')

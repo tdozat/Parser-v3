@@ -258,6 +258,7 @@ class BaseNetwork(object):
                   stdscr.clrtoeol()
                   train_outputs.print_recent_history(stdscr)
                   dev_outputs.print_recent_history(stdscr)
+                  print('')
                   stdscr.move(2,0)
                   stdscr.refresh()
               current_epoch = sess.run(self.global_step)

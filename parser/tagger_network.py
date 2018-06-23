@@ -105,6 +105,13 @@ class TaggerNetwork(BaseNetwork):
           token_weights=token_weights,
           reuse=reuse)
         self._evals.add('xpos')
+      if 'ufeats' in output_vocabs:
+        vocab = output_vocabs['ufeats']
+        outputs[vocab.field] = vocab.get_linear_classifier(
+          layer,
+          token_weights=token_weights,
+          reuse=reuse)
+        self._evals.add('ufeats')
       if 'deprel' in output_vocabs:
         vocab = output_vocabs['deprel']
         outputs[vocab.field] = vocab.get_linear_classifier(

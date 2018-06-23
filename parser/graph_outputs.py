@@ -45,6 +45,7 @@ class GraphOutputs(object):
                     ('lemma', 'Lemma'),
                     ('upos', 'UPOS'),
                     ('xpos', 'XPOS'),
+                    ('ufeats', 'UFeat'),
                     ('dephead', 'UAS'),
                     ('deprel', 'OLS'),
                     ('deptree', 'LAS'),
@@ -249,7 +250,7 @@ class GraphOutputs(object):
     """"""
     
     order = np.argsort(self.predictions['indices'])
-    fields = ['form', 'lemma', 'upos', 'xpos', 'morph', 'dephead', 'deprel', 'semrel', 'misc']
+    fields = ['form', 'lemma', 'upos', 'xpos', 'ufeats', 'dephead', 'deprel', 'semrel', 'misc']
     for i in order:
       j = 1
       token = []
@@ -271,7 +272,7 @@ class GraphOutputs(object):
     """"""
     
     order = np.argsort(self.predictions['indices'])
-    fields = ['form', 'lemma', 'upos', 'xpos', 'morph', 'dephead', 'deprel', 'semrel', 'misc']
+    fields = ['form', 'lemma', 'upos', 'xpos', 'ufeats', 'dephead', 'deprel', 'semrel', 'misc']
     for i in order:
       j = 1
       token = []
