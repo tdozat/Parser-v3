@@ -47,12 +47,22 @@ class FeatureVocab(BaseVocab):
     super(FeatureVocab, self).__init__(*args, placeholder_shape=placeholder_shape, **kwargs)
     
     self._counts = DefaultDict(Counter)
-    self._feats = list()
-    self._feat_set = set()
     self._str2idx = DefaultDict(dict)
     self._idx2str = DefaultDict(dict)
-    self.PAD_STR = self.ROOT_STR = self.UNK_STR = self.pad_str
-    self.PAD_IDX = self.ROOT_IDX = self.UNK_IDX = 0
+    self.PAD_STR = self.UNK_STR = self.pad_str
+    self.PAD_IDX = self.UNK_IDX = 0
+    if self.keyed:
+      self.ROOT_STR = 'Yes'
+      self.ROOT_IDX = 1
+      self._feats = ['Root']
+      self._feat_set = {'Root'}
+      self['Root', self.PAD_STR] = self.PAD_IDX
+      self['Root', self.ROOT_STR] = self.ROOT_IDX
+    else:
+      self.ROOT_STR = self.pad_str
+      self.ROOT_IDX = 0
+      self._feats = list()
+      self._feat_set = dict()
     
   #=============================================================
   def get_input_tensor(self, embed_keep_prob=None, nonzero_init=True, variable_scope=None, reuse=True):
@@ -201,7 +211,7 @@ class FeatureVocab(BaseVocab):
   def get_root(self):
     """"""
     
-    return '_' if self.keyed else self.separator.join([self.ROOT_STR for _ in self._feats])
+    return 'Root=Yes' if self.keyed else self.separator.join([self.ROOT_STR for _ in self._feats])
   
   #=============================================================
   @staticmethod
@@ -276,7 +286,7 @@ class FeatureVocab(BaseVocab):
       if not self.cased:
         key = key.lower()
       if key == '_':
-        return [self.ROOT_IDX for _ in self._feats]
+        return [self.PAD_IDX for _ in self._feats]
       multitoken = key.split(self.separator)
       if self.keyed:
         key_dict = {}
