@@ -28,10 +28,10 @@ from . import nonlin
 #***************************************************************
 def hidden(layer, hidden_size, hidden_func=nonlin.relu, hidden_keep_prob=1.):
   """"""
-  
+
   layer_shape = nn.get_sizes(layer)
   input_size = layer_shape.pop()
-  weights = tf.get_variable('Weights', shape=[input_size, hidden_size], initializer=tf.orthogonal_initializer)
+  weights = tf.get_variable('Weights', shape=[input_size, hidden_size])#, initializer=tf.orthogonal_initializer)
   biases = tf.get_variable('Biases', shape=[hidden_size], initializer=tf.zeros_initializer)
   if hidden_keep_prob < 1.:
     if len(layer_shape) > 1:
@@ -49,12 +49,12 @@ def hidden(layer, hidden_size, hidden_func=nonlin.relu, hidden_keep_prob=1.):
 #===============================================================
 def hiddens(layer, hidden_sizes, hidden_func=nonlin.relu, hidden_keep_prob=1.):
   """"""
-  
+
   layer_shape = nn.get_sizes(layer)
   input_size = layer_shape.pop()
   weights = []
   for i, hidden_size in enumerate(hidden_sizes):
-    weights.append(tf.get_variable('Weights-%d' % i, shape=[input_size, hidden_size], initializer=tf.orthogonal_initializer))
+    weights.append(tf.get_variable('Weights-%d' % i, shape=[input_size, hidden_size]))#, initializer=tf.orthogonal_initializer))
   weights = tf.concat(weights, axis=1)
   hidden_size = sum(hidden_sizes)
   biases = tf.get_variable('Biases', shape=[hidden_size], initializer=tf.zeros_initializer)
