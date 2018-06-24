@@ -37,6 +37,14 @@ then
   if [ "$LC" == "zh" ]
   then
     pretrained_file=data/embeddings/"$LANGUAGE"T/"$LC".vectors.xz
+  elif [ "$LC" == "no" ]
+  then
+    if [ "$TB" == "bokmaal" ]
+    then
+      pretrained_file=data/embeddings/"$LANGUAGE"-Bokmaal/"$LC"_bokmaal.vectors.xz
+    else  
+      pretrained_file=data/embeddings/"$LANGUAGE"-Nynorsk/"$LC"_nynorsk.vectors.xz
+    fi
   else
     pretrained_file=data/embeddings/$LANGUAGE/"$LC".vectors.xz
   fi
