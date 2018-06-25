@@ -29,6 +29,8 @@ import codecs
 import numpy as np
 import tensorflow as tf
 
+from debug.timer import Timer
+
 from parser.neural import nn, nonlin, embeddings, recurrent, classifiers
 from parser.graph_outputs import GraphOutputs, TrainOutputs, DevOutputs
 from parser.structs import conllu_dataset

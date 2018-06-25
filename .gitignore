@@ -10,5 +10,4 @@ saves/
 *.tar.gz
 
 # Debug information
-debug/
 *.log
