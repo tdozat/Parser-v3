@@ -265,12 +265,12 @@ class FeatureVocab(BaseVocab):
     with codecs.open(vocab_filename, encoding='utf-8', errors='ignore') as f:
       for line in f:
         line = line.rstrip()
-        feat = None
         if line:
           featmatch = re.match('\[(.*)\]$', line) # matches '[feature]'
           match = re.match('(.*)\s([0-9]+)', line) # matches 'value count'
           if featmatch:
             feat = featmatch.group(1)
+            self._feats.append(feat)
             self._counts[feat] = Counter()
           elif match:
             token = match.group(1)

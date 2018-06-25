@@ -141,31 +141,6 @@ class CoNLLUDataset(set):
     if shuffle:
       np.random.shuffle(batches)
     return iter(batches)
-  
-  ##=============================================================
-  #def file_batch_iterator(self, file_index):
-  #  """"""
-  #  
-  #  batch_size = self.batch_size
-  #  assert batch_size > 0, 'batch_size must be > 0'
-  #  
-  #  bucket_indices = self._multibucket.bucket_indices
-  #  for i in np.unique(bucket_indices):
-  #    subdata = np.where(bucket_indices == i)[0]
-  #    if len(subdata) > 0:
-  #      n_splits = max(subdata.shape[0] * self._multibucket.max_lengths[i] // self.batch_size, 1)
-  #      batches.extend(np.array_split(subdata, n_splits))
-  #  return iter(batches)
-  #  
-  #  #file_indices = self._multibucket.file_indices
-  #  #file_i_indices = np.where(file_indices == file_index)[0]
-  #  #file_i_bucket_indices = bucket_indices[file_i_indices]
-  #  #for j in np.unique(file_i_bucket_indices):
-  #  #  bucket_j_indices = np.where(file_i_bucket_indices == j)[0]
-  #  #  file_i_bucket_j_indices = file_i_indices[bucket_j_indices]
-  #  #  indices = np.array_split(file_i_bucket_j_indices, np.ceil(len(file_i_bucket_j_indices) * self._multibucket.max_lengths[j] / batch_size))
-  #  #  for batch in indices:
-  #  #    yield batch
     
   #=============================================================
   def set_placeholders(self, indices, feed_dict={}):

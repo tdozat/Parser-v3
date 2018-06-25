@@ -236,9 +236,8 @@ class BaseNetwork(object):
                     best_accuracy = current_accuracy
                     if self.save_model_after_improvement:
                       saver.save(sess, os.path.join(self.save_dir, 'ckpt'), global_step=self.global_step, write_meta_graph=False)
-                    if self.parse_datasets:
+                    if self.parse_devset:
                       self.parse_files(devset, dev_outputs, sess, print_time=False)
-                      self.parse_files(testset, dev_outputs, sess, print_time=False)
                   else:
                     steps_since_best += self.print_every
                   current_epoch = sess.run(self.global_step)
@@ -327,9 +326,8 @@ class BaseNetwork(object):
                   best_accuracy = current_accuracy
                   if self.save_model_after_improvement:
                     saver.save(sess, os.path.join(self.save_dir, 'ckpt'), global_step=self.global_step, write_meta_graph=False)
-                  if self.parse_datasets:
+                  if self.parse_devset:
                     self.parse_files(devset, dev_outputs, sess, print_time=False)
-                    self.parse_files(testset, dev_outputs, sess, print_time=False)
                 else:
                   steps_since_best += self.print_every
                 current_epoch = sess.run(self.global_step)
@@ -606,8 +604,8 @@ class BaseNetwork(object):
   def n_passes(self):
     return self._config.getint(self, 'n_passes')
   @property
-  def parse_datasets(self):
-    return self._config.getboolean(self, 'parse_datasets')
+  def parse_devset(self):
+    return self._config.getboolean(self, 'parse_devset')
   @property
   def save_model_after_improvement(self):
     return self._config.getboolean(self, 'save_model_after_improvement')

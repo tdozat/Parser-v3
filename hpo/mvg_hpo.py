@@ -157,6 +157,9 @@ class MVGHPO(PPPHPO):
     maximize = np.arange(len(self))[(1-dims).astype(bool)]
     rand_dict = super(MVGHPO, self).rand()
     rank_dict, maximize = self.improve_rank(maximize)
+    if len(self.scores) < len(self)+2:
+      return self.clean_dict(rand_dict)
+
     for k, v in six.iteritems(rank_dict):
       rand_dict[k].update(v)
     max_dict = self.rand(maximize)
