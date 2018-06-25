@@ -117,7 +117,7 @@ class IndexVocab(BaseVocab):
                 add_linear=add_linear)
           if distance:
             with tf.variable_scope('Distance'):
-              dist_lamda = tf.exp(classifiers.diagonal_bilinear_discriminator(
+              dist_lamda = 1+tf.exp(classifiers.diagonal_bilinear_discriminator(
                 dist_layer1, dist_layer2,
                 hidden_keep_prob=hidden_keep_prob,
                 add_linear=add_linear))
@@ -134,7 +134,7 @@ class IndexVocab(BaseVocab):
                 add_linear=add_linear)
           if distance:
             with tf.variable_scope('Distance'):
-              dist_lamda = tf.exp(1+classifiers.bilinear_discriminator(
+              dist_lamda = 1+tf.exp(classifiers.bilinear_discriminator(
                 dist_layer1, dist_layer2,
                 hidden_keep_prob=hidden_keep_prob,
                 add_linear=add_linear))
@@ -169,7 +169,8 @@ class IndexVocab(BaseVocab):
           # (1 x 1 x m) - (1 x m x 1) -> (n x m x m)
           dist_ids = tf.to_float(tf.tile(tf.abs(head_ids - dep_ids), [batch_size, 1, 1]))+1e-12
           # (n x m x m), (n x m x m) -> (n x m x m)
-          dist_kld = (dist_ids * tf.log(dist_lamda / dist_ids) + dist_ids - dist_lamda)
+          #dist_kld = (dist_ids * tf.log(dist_lamda / dist_ids) + dist_ids - dist_lamda)
+          dist_kld = -2*tf.log(tf.abs(dist_ids - dist_lamda) + 1)
           # add the KL-divergence to the logits
           # (n x m x m), (n x m x m) -> (n x m x m)
           logits += tf.stop_gradient(dist_kld)
