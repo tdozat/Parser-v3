@@ -29,6 +29,8 @@ import codecs
 import numpy as np
 import tensorflow as tf
 
+from debug.timer import Timer
+
 from parser.base_network import BaseNetwork
 from parser.neural import nn, nonlin, embeddings, recurrent, classifiers
 

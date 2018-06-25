@@ -14,5 +14,13 @@ class Timer(object):
     return self
   
   def __exit__(self, *args):
-    print('{}: {:0.2f}'.format(self.name, time.time() - self._start))
+    print('{}: {:0.2f}'.format(self.name, time.time() - self.start))
     return
+
+  #=============================================================
+  @property
+  def name(self):
+    return self._name
+  @property
+  def start(self):
+    return self._start

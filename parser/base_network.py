@@ -384,11 +384,7 @@ class BaseNetwork(object):
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     with tf.Session(config=config) as sess:
-      #sess.run(tf.global_variables_initializer())
       saver.restore(sess, tf.train.latest_checkpoint(self.save_dir))
-      with open('debug.log', 'a') as f:
-        with tf.variable_scope(self.classname + '/RNN-0/RNN_FW/Loop', reuse=True):
-          f.write('{}\n'.format(sess.run(tf.get_variable('Initial_state'))))
       if len(conllu_files) == 1 or output_filename is not None:
         self.parse_file(parseset, parse_outputs, sess, output_dir=output_dir, output_filename=output_filename)
       else:

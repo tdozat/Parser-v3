@@ -261,7 +261,7 @@ class GraphOutputs(object):
             token.append(self.predictions[field][i][j])
           else:
             token.append('_')
-        print('\t'.join(token))
+        print(u'\t'.join(token))
         j += 1
       print('')
     self.predictions = {'indices': []}
