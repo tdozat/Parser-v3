@@ -45,6 +45,7 @@ def tarjan(tree):
   return cycles
 
 #===============================================================
+# NOTE: i'm so sorry --Tim
 def chuliu_edmonds(scores):
   """"""
   
@@ -139,13 +140,13 @@ def chuliu_edmonds_one_root(scores):
     scores[root,0] = 1
     return chuliu_edmonds(scores)
   else:
-    best_score, best_tree = -np.inf, tree
+    best_score, best_tree = -np.inf, None # This is what's causing it to crash
     for root in roots:
       _scores = np.array(scores)
       _scores[1:,0] = 0
       _scores[root] = 0
       _scores[root,0] = 1
-      _tree = chuliu_edmonds(_scores)
+      _tree = chuliu_edmonds_one_root(_scores)
       tree_probs = _scores[np.arange(len(_scores)), _tree]
       tree_score = np.log(tree_probs).sum() if tree_probs.all() else -np.inf
       if tree_score > best_score:
