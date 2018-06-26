@@ -89,8 +89,8 @@ class TaggerNetwork(BaseNetwork):
       if 'lemma' in output_vocabs:
         vocab = output_vocabs['lemma']
         outputs[vocab.field] = vocab.get_linear_classifier(
-          layer, last_output if self.share_layer else None,
-          token_weights=token_weights,
+          layer, token_weights,
+          last_output if self.share_layer else None,
           reuse=reuse)
         self._evals.add('lemma')
         if last_output is None:
@@ -98,8 +98,8 @@ class TaggerNetwork(BaseNetwork):
       if 'upos' in output_vocabs:
         vocab = output_vocabs['upos']
         outputs[vocab.field] = vocab.get_linear_classifier(
-          layer, last_output if self.share_layer else None, 
-          token_weights=token_weights,
+          layer, token_weights,
+          last_output if self.share_layer else None, 
           reuse=reuse)
         self._evals.add('upos')
         if last_output is None:
@@ -107,8 +107,8 @@ class TaggerNetwork(BaseNetwork):
       if 'xpos' in output_vocabs:
         vocab = output_vocabs['xpos']
         outputs[vocab.field] = vocab.get_linear_classifier(
-          layer, last_output if self.share_layer else None, 
-          token_weights=token_weights,
+          layer, token_weights,
+          last_output if self.share_layer else None, 
           reuse=reuse)
         self._evals.add('xpos')
         if last_output is None:
@@ -116,8 +116,8 @@ class TaggerNetwork(BaseNetwork):
       if 'ufeats' in output_vocabs:
         vocab = output_vocabs['ufeats']
         outputs[vocab.field] = vocab.get_linear_classifier(
-          layer, last_output if self.share_layer else None, 
-          token_weights=token_weights,
+          layer, token_weights,
+          last_output if self.share_layer else None, 
           reuse=reuse)
         self._evals.add('ufeats')
         if last_output is None:
@@ -125,8 +125,8 @@ class TaggerNetwork(BaseNetwork):
       if 'deprel' in output_vocabs:
         vocab = output_vocabs['deprel']
         outputs[vocab.field] = vocab.get_linear_classifier(
-          layer, last_output if self.share_layer else None, 
-          token_weights=token_weights,
+          layer, token_weights,
+          last_output if self.share_layer else None, 
           reuse=reuse)
         self._evals.add('deprel')
         if last_output is None:
