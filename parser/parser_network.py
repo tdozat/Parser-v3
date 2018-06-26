@@ -45,6 +45,8 @@ class ParserNetwork(BaseNetwork):
         pos_vocabs = list(filter(lambda x: 'POS' in x.classname, self.input_vocabs))
         pos_tensors = [input_vocab.get_input_tensor(embed_keep_prob=1, reuse=reuse) for input_vocab in pos_vocabs]
         non_pos_tensors = [input_vocab.get_input_tensor(reuse=reuse) for input_vocab in self.input_vocabs if 'POS' not in input_vocab.classname]
+        #pos_tensors = [tf.Print(pos_tensor, [pos_tensor]) for pos_tensor in pos_tensors]
+        #non_pos_tensors = [tf.Print(non_pos_tensor, [non_pos_tensor]) for non_pos_tensor in non_pos_tensors]
         if pos_tensors:
           pos_tensors = tf.add_n(pos_tensors)
           if not reuse:
@@ -58,6 +60,7 @@ class ParserNetwork(BaseNetwork):
         with tf.variable_scope(input_network.classname):
           input_tensors.append(input_network.get_input_tensor(output, reuse=reuse))
       layer = tf.concat(input_tensors, 2)
+
     n_nonzero = tf.to_float(tf.count_nonzero(layer, axis=-1, keep_dims=True))
     batch_size, bucket_size, input_size = nn.get_sizes(layer)
     layer *= input_size / (n_nonzero + tf.constant(1e-12))
@@ -115,7 +118,14 @@ class ParserNetwork(BaseNetwork):
             reuse=reuse)
         outputs['deptree'] = labeled_outputs
         self._evals.add('deptree')
-      elif 'dephead' in output_vocabs:
+        if 'ufeats' in output_fields:
+          vocab = output_fields['ufeats']
+          outputs[vocab.field] = vocab.get_bilinear_classifier(
+            layer, labeled_outputs,
+            token_weights=token_weights,
+            reuse=reuse)
+          self._evals.add('ufeats')
+      elif 'dephead' in output_fields:
         vocab = output_fields['dephead']
         outputs[vocab.classname] = vocab.get_bilinear_classifier(
           layer,

@@ -48,7 +48,7 @@ class BaseNetwork(object):
     """"""
 
     self._config = config
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+    #os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
     self._input_networks = input_networks
     input_network_classes = set(input_network.classname for input_network in self._input_networks)
@@ -68,37 +68,37 @@ class BaseNetwork(object):
       self._id_vocab = vocabs.IDIndexVocab(config=config)
       extant_vocabs['IDIndexVocab'] = self._id_vocab
 
-    self._input_vocabs = set()
+    self._input_vocabs = []
     for input_vocab_classname in self.input_vocab_classes:
       if input_vocab_classname in extant_vocabs:
-        self._input_vocabs.add(extant_vocabs[input_vocab_classname])
+        self._input_vocabs.append(extant_vocabs[input_vocab_classname])
       else:
         VocabClass = getattr(vocabs, input_vocab_classname)
         vocab = VocabClass(config=config)
         vocab.load() or vocab.count(self.train_conllus)
-        self._input_vocabs.add(vocab)
+        self._input_vocabs.append(vocab)
         extant_vocabs[input_vocab_classname] = vocab
 
-    self._output_vocabs = set()
+    self._output_vocabs = []
     for output_vocab_classname in self.output_vocab_classes:
       if output_vocab_classname in extant_vocabs:
-        self._output_vocabs.add(extant_vocabs[output_vocab_classname])
+        self._output_vocabs.append(extant_vocabs[output_vocab_classname])
       else:
         VocabClass = getattr(vocabs, output_vocab_classname)
         vocab = VocabClass(config=config)
         vocab.load() or vocab.count(self.train_conllus)
-        self._output_vocabs.add(vocab)
+        self._output_vocabs.append(vocab)
         extant_vocabs[output_vocab_classname] = vocab
 
-    self._throughput_vocabs = set()
+    self._throughput_vocabs = []
     for throughput_vocab_classname in self.throughput_vocab_classes:
       if throughput_vocab_classname in extant_vocabs:
-        self._throughput_vocabs.add(extant_vocabs[throughput_vocab_classname])
+        self._throughput_vocabs.append(extant_vocabs[throughput_vocab_classname])
       else:
         VocabClass = getattr(vocabs, throughput_vocab_classname)
         vocab = VocabClass(config=config)
         vocab.load() or vocab.count(self.train_conllus)
-        self._throughput_vocabs.add(vocab)
+        self._throughput_vocabs.append(vocab)
         extant_vocabs[throughput_vocab_classname] = vocab
 
     with tf.variable_scope(self.classname, reuse=False):
@@ -381,6 +381,7 @@ class BaseNetwork(object):
 
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
+    config.allow_soft_placement = True
     with tf.Session(config=config) as sess:
       saver.restore(sess, tf.train.latest_checkpoint(self.save_dir))
       if len(conllu_files) == 1 or output_filename is not None:

@@ -149,6 +149,82 @@ class FeatureVocab(BaseVocab):
     return outputs
   
   #=============================================================
+  # TODO finish this
+  def get_bilinear_classifier(self, layer, outputs, token_weights, variable_scope=None, reuse=False):
+    """"""
+    
+    recur_layer = layer
+    hidden_keep_prob = 1 if reuse else self.hidden_keep_prob
+    with tf.variable_scope(variable_scope or self.classname):
+      with tf.variable_scope(variable_scope or self.classname):
+        for i in six.moves.range(0, self.n_layers-1):
+          with tf.variable_scope('FC-%d' % i):
+            layer = classifiers.hidden(layer, 2*hidden_size,
+                                       hidden_func=self.hidden_func,
+                                       hidden_keep_prob=hidden_keep_prob)
+          with tf.variable_scope('FC-top'):
+            layers = classifiers.hiddens(layer, 2*[hidden_size],
+                                         hidden_func=self.hidden_func,
+                                         hidden_keep_prob=hidden_keep_prob)
+      layer1, layer2 = layers.pop(0), layers.pop(0)
+      with tf.variable_scope('Classifier'):
+        probabilities = []
+        loss = []
+        predictions = []
+        correct_tokens = []
+        for i, feat in enumerate(self._feats):
+          vs_feat = str(feat).replace('[', '-RSB-').replace(']', '-LSB-')
+          with tf.variable_scope(vs_feat):
+            if self.diagonal:
+              logits = classifiers.diagonal_bilinear_classifier(layer1, layer2, self.getlen(feat),
+                                                                hidden_keep_prob=hidden_keep_prob,
+                                                                add_linear=self.add_linear)
+            else:
+              logits = classifiers.bilinear_classifier(layer1, layer2, self.getlen(feat),
+                                                       hidden_keep_prob=hidden_keep_prob,
+                                                       add_linear=self.add_linear)
+            targets = self.placeholder[:,:,i]
+            
+            #---------------------------------------------------
+            # Compute probabilities/cross entropy
+            # (n x m x c) -> (n x m x c)
+            probabilities.append(tf.nn.softmax(logits))
+            # (n x m), (n x m x c), (n x m) -> ()
+            loss.append(tf.losses.sparse_softmax_cross_entropy(targets, logits, weights=token_weights))
+            
+            #---------------------------------------------------
+            # Compute predictions/accuracy
+            # (n x m x c) -> (n x m)
+            predictions.append(tf.argmax(logits, axis=-1, output_type=tf.int32))
+            # (n x m) (*) (n x m) -> (n x m)
+            correct_tokens.append(nn.equal(targets, predictions[-1]))
+        # (n x m) x f -> (n x m x f)
+        predictions = tf.stack(predictions, axis=-1)
+        # (n x m) x f -> (n x m x f)
+        correct_tokens = tf.stack(correct_tokens, axis=-1)
+        # (n x m x f) -> (n x m)
+        correct_tokens = tf.reduce_prod(correct_tokens, axis=-1) * token_weights
+        # (n x m) -> (n)
+        tokens_per_sequence = tf.reduce_sum(token_weights, axis=-1)
+        # (n x m) -> (n)
+        correct_tokens_per_sequence = tf.reduce_sum(correct_tokens, axis=-1)
+        # (n), (n) -> (n)
+        correct_sequences = nn.equal(tokens_per_sequence, correct_tokens_per_sequence)
+    
+    #-----------------------------------------------------------
+    # Populate the output dictionary
+    outputs = {}
+    outputs['recur_layer'] = recur_layer
+    outputs['targets'] = self.placeholder
+    outputs['probabilities'] = probabilities
+    outputs['loss'] = tf.add_n(loss)
+    
+    outputs['predictions'] = predictions
+    outputs['n_correct_tokens'] = tf.reduce_sum(correct_tokens)
+    outputs['n_correct_sequences'] = tf.reduce_sum(correct_sequences)
+    return outputs
+  
+  #=============================================================
   def getlen(self, feat):
     """"""
     

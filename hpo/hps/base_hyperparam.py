@@ -205,7 +205,7 @@ class NumericHyperparam(BaseHyperparam):
     if self.fixed or (value is None):
       return np.nan
     else:
-      return (value - self.lower) / (self.upper - self.lower)
+      return (value - self.lower.astype(np.int64)) / (self.upper.astype(np.int64) - self.lower.astype(np.int64))
     
   def denormalize(self, value):
     """"""
@@ -213,7 +213,7 @@ class NumericHyperparam(BaseHyperparam):
     if self.fixed or (value is None):
       return np.nan
     else:
-      return value * (self.upper - self.lower) + self.lower
+      return value * (self.upper.astype(np.int64) - self.lower.astype(np.int64)) + self.lower.astype(np.int64)
   
   #=============================================================
   @property

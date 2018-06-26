@@ -82,7 +82,6 @@ class TaggerNetwork(BaseNetwork):
                                           highway_func=self.highway_func,
                                           bilin=self.bilin)
     
-    input_vocabs = {vocab.field: vocab for vocab in self.input_vocabs}
     output_vocabs = {vocab.field: vocab for vocab in self.output_vocabs}
     outputs = {}
     with tf.variable_scope('Classifiers'):
