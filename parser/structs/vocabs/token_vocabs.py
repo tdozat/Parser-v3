@@ -76,13 +76,17 @@ class TokenVocab(CountVocab):
     return layer
   
   #=============================================================
-  def get_linear_classifier(self, layer, token_weights, variable_scope=None, reuse=False):
+  def get_linear_classifier(self, layer, token_weights, last_output=None, variable_scope=None, reuse=False):
     """"""
     
     recur_layer = layer
+    if last_output:
+      n_layers = 0
+    else:
+      n_layers = self.n_layers
     hidden_keep_prob = 1 if reuse else self.hidden_keep_prob
     with tf.variable_scope(variable_scope or self.classname):
-      for i in six.moves.range(0, self.n_layers):
+      for i in six.moves.range(0, n_layers):
         with tf.variable_scope('FC-%d' % i):
           layer = classifiers.hidden(layer, self.hidden_size,
                                     hidden_func=self.hidden_func,
@@ -114,7 +118,8 @@ class TokenVocab(CountVocab):
     #-----------------------------------------------------------
     # Populate the output dictionary
     outputs = {}
-    outputs['recur_layer'] = recur_layer
+    outputs['recur_layer'] = recur_layer if last_output is not None else last_output['recur_layer']
+    outputs['hidden_layer'] = layer
     outputs['targets'] = targets
     outputs['probabilities'] = probabilities
     outputs['loss'] = loss
