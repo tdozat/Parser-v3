@@ -117,7 +117,7 @@ class IndexVocab(BaseVocab):
                 add_linear=add_linear)
           if distance:
             with tf.variable_scope('Distance'):
-              dist_lamda = 1+tf.exp(classifiers.diagonal_bilinear_discriminator(
+              dist_lamda = 1+tf.nn.softplus(classifiers.diagonal_bilinear_discriminator(
                 dist_layer1, dist_layer2,
                 hidden_keep_prob=hidden_keep_prob,
                 add_linear=add_linear))
@@ -134,7 +134,7 @@ class IndexVocab(BaseVocab):
                 add_linear=add_linear)
           if distance:
             with tf.variable_scope('Distance'):
-              dist_lamda = 1+tf.exp(classifiers.bilinear_discriminator(
+              dist_lamda = 1+tf.nn.softplus(classifiers.bilinear_discriminator(
                 dist_layer1, dist_layer2,
                 hidden_keep_prob=hidden_keep_prob,
                 add_linear=add_linear))
