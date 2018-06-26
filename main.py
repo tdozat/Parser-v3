@@ -249,6 +249,11 @@ def run(**kwargs):
   output_filename = kwargs.pop('output_filename')
 
   # Get the cl-defined options
+  kwargs = {key: value for key, value in six.iteritems(kwargs) if value is not None}
+  for section, values in six.iteritems(kwargs):
+    if section in section_names:
+      values = [value.split('=', 1) for value in values]
+      kwargs[section] = {opt: value for opt, value in values}
   if 'DEFAULT' not in kwargs:
     kwargs['DEFAULT'] = {}
     
