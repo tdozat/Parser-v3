@@ -32,7 +32,8 @@ from argparse import ArgumentParser
 from parser.config import Config
 import parser 
 from hpo import MVGHPO
-from hpo.evals.syndep_eval import evaluate_tokens
+#from hpo.evals.syndep_eval import evaluate_tokens
+from hpo.evals.conll18_eval import evaluate
 
 section_names = set()
 with codecs.open(os.path.join('config', 'defaults.cfg')) as f:
@@ -88,6 +89,7 @@ def main():
   hpo_parser.add_argument('--noscreen', action='store_true')
   hpo_parser.add_argument('--config_file', default='')
   hpo_parser.add_argument('--rand_file', default='hpo/config/default.csv')
+  hpo_parser.add_argument('--eval_metric', default='LAS')
   for section_name in section_names:
     hpo_parser.add_argument('--'+section_name, nargs='+')
 
@@ -98,6 +100,8 @@ def main():
   run_parser.add_argument('conllu_files', nargs='+')
   run_parser.add_argument('--output_dir')
   run_parser.add_argument('--output_filename')
+  for section_name in section_names:
+    run_parser.add_argument('--'+section_name, nargs='+')
     
   # parse the arguments
   kwargs = vars(argparser.parse_args())
@@ -175,6 +179,7 @@ def hpo(**kwargs):
   network_class = kwargs.pop('network_class')
   config_file = kwargs.pop('config_file')
   rand_file = kwargs.pop('rand_file')
+  eval_metric = kwargs.pop('eval_metric')
   
   # Get the cl-defined options
   kwargs = {key: value for key, value in six.iteritems(kwargs) if value is not None}
@@ -202,7 +207,7 @@ def hpo(**kwargs):
   tb = kwargs['DEFAULT']['TB']
   base = 'data/CoNLL18/UD_{}-{}/{}_{}-ud-dev.conllu'.format(lang, treebank, lc, tb)
   def eval_func(save_dir):
-    return evaluate_tokens(base, os.path.join(save_dir, 'parsed', base))
+    return evaluate(base, os.path.join(save_dir, 'parsed', base), eval_metric)
   #-------------------------------------------------------------
   rargs = next(MVGHPO(rand_file, save_dir, eval_func=eval_func))
   for section in rargs:
