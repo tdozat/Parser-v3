@@ -87,6 +87,7 @@ class BaseVocab(object):
     return
 
   def load(self):
+    self._loaded = True
     return True
 
   def open(self):
@@ -279,6 +280,7 @@ class CountVocab(SetVocab):
       vocab_filename = self.vocab_loadname
       dump = True
     else:
+     self._loaded = False
      return False
     
     with codecs.open(vocab_filename, encoding='utf-8', errors='ignore') as f:
@@ -290,6 +292,7 @@ class CountVocab(SetVocab):
           count = int(match.group(2))
           self.counts[token] = count
     self.index_by_counts(dump=dump)
+    self._loaded = True
     return True
 
   #=============================================================

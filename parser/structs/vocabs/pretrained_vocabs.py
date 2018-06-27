@@ -18,7 +18,9 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+import six
 
+import os
 import codecs
 import zipfile
 import gzip
@@ -30,16 +32,24 @@ except:
   except:
     import warnings
     warnings.warn('Install backports.lzma for xz support')
+try:
+  import cPickle as pkl
+except ImportError:
+  import pickle as pkl
 from collections import Counter
 
 import numpy as np
 import tensorflow as tf
  
+from debug.timer import Timer
 from parser.structs.vocabs.base_vocabs import SetVocab
 from . import conllu_vocabs as cv
 from parser.neural import embeddings
 
 #***************************************************************
+# TODO maybe change self.name to something more like self._save_str?
+# Ideally there should be Word2vecVocab, GloveVocab, FasttextVocab,
+# each with their own _save_str
 class PretrainedVocab(SetVocab):
   """"""
   
@@ -80,11 +90,10 @@ class PretrainedVocab(SetVocab):
     return layer
     
   #=============================================================
-  def load(self):
+  def count(self, *args):
     """"""
     
     max_embed_count = self.max_embed_count
-    cur_idx = len(self.special_tokens)
     if self.pretrained_file.endswith('.zip'):
       open_func = zipfile.Zipfile
       kwargs = {}
@@ -98,46 +107,92 @@ class PretrainedVocab(SetVocab):
       open_func = codecs.open
       kwargs = {'errors': 'ignore'}
     
-    # Determine the dimensions of the embedding matrix
-    with open_func(self.pretrained_file, 'rb') as f:
-      reader = codecs.getreader('utf-8')(f, **kwargs)
-      first_line = reader.readline().rstrip().split(' ')
-      if len(first_line) == 2: # It has a header that gives the dimensions
-        has_header = True
-        shape = [int(first_line[0])+cur_idx, int(first_line[1])]
-      else: # We have to compute the dimensions ourself
-        has_header = False
-        for line_num, line in enumerate(reader):
-          pass
-        shape = [cur_idx+line_num+2, len(line.split())-1]
-      shape[0] = min(shape[0], max_embed_count+cur_idx) if max_embed_count else shape[0]
-      embeddings = np.zeros(shape, dtype=np.float32)
+    cur_idx = len(self.special_tokens)
+    tokens = []
+    with Timer('Reading embedding matrix from text'):
+      # Determine the dimensions of the embedding matrix
+      with open_func(self.pretrained_file, 'rb') as f:
+        reader = codecs.getreader('utf-8')(f, **kwargs)
+        first_line = reader.readline().rstrip().split(' ')
+        if len(first_line) == 2: # It has a header that gives the dimensions
+          has_header = True
+          shape = [int(first_line[0])+cur_idx, int(first_line[1])]
+        else: # We have to compute the dimensions ourself
+          has_header = False
+          for line_num, line in enumerate(reader):
+            pass
+          shape = [cur_idx+line_num+1, len(line.split())-1]
+        shape[0] = min(shape[0], max_embed_count+cur_idx) if max_embed_count else shape[0]
+        embeddings = np.zeros(shape, dtype=np.float32)
+      
+      # Fill in the embedding matrix
+      #with open_func(self.pretrained_file, 'rt', encoding='utf-8') as f:
+      with open_func(self.pretrained_file, 'rb') as f:
+        for line_num, line in enumerate(f):
+          if line_num:
+            if cur_idx < shape[0]:
+              line = line.rstrip()
+              if line:
+                line = line.decode('utf-8', errors='ignore').split(' ')
+                embeddings[cur_idx] = line[1:]
+                tokens.append(line[0])
+                self[line[0]] = cur_idx
+                cur_idx += 1
+            else:
+              break
     
-    # Fill in the embedding matrix
-    with open_func(self.pretrained_file, 'rb') as f:
-      reader = codecs.getreader('utf-8')(f, **kwargs)
-      if has_header:
-        reader.readline()
-      for line_num, line in enumerate(reader):
-        if cur_idx+1 < shape[0]:
-          line = line.rstrip()
-          if line:
-            line = line.split(' ')
-            embeddings[cur_idx] = line[1:]
-            self[line[0]] = cur_idx
-            cur_idx += 1
-        else:
-          break
-    
-    shape = embeddings.shape
     self._embed_size = shape[1]
+    self._tokens = tokens
     self._embeddings = embeddings
+    self.dump()
+    return True
+
+  #=============================================================
+  def dump(self):
+    with Timer('Saving to pickle'):
+      if self.save_as_pickle:
+        with open(self.vocab_savename, 'wb') as f:
+          pkl.dump((self._tokens, self._embeddings), f, protocol=pkl.HIGHEST_PROTOCOL)
+    return
+
+  #=============================================================
+  def load(self):
+    """"""
+
+    dump = None
+    if os.path.exists(self.vocab_savename):
+      vocab_filename = self.vocab_savename
+      dump = False
+    elif self.vocab_loadname and os.path.exists(self.vocab_loadname):
+      vocab_filename = self.vocab_loadname
+      dump = True
+    else:
+      self._loaded = False
+      return False
+
+    with Timer('Reading embedding matrix from pickle'):
+      with open(vocab_filename, 'rb') as f:
+        self._tokens, self._embeddings = pkl.load(f, encoding='utf-8', errors='ignore')
+      cur_idx = len(self.special_tokens)
+      for token in self._tokens:
+        self[token] = cur_idx
+        cur_idx += 1
+      self._embedding_size = self._embeddings.shape[1]
+    if dump:
+      self.dump()
+    self._loaded = True
     return True
 
   #=============================================================
   @property
   def pretrained_file(self):
-    return self._pretrained_file
+    return self._config.getstr(self, 'pretrained_file')
+  @property
+  def vocab_loadname(self):
+    return self._config.getstr(self, 'vocab_loadname')
+  @property
+  def vocab_savename(self):
+    return os.path.splitext(self.pretrained_file)[0] + '.pkl'
   @property
   def name(self):
     return self._name
@@ -153,6 +208,9 @@ class PretrainedVocab(SetVocab):
   @property
   def embed_size(self):
     return self._embed_size
+  @property
+  def save_as_pickle(self):
+    return self._config.getboolean(self, 'save_as_pickle')
   @property
   def linear_size(self):
     return self._config.getint(self, 'linear_size')

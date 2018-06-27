@@ -155,6 +155,72 @@ class FeatureVocab(BaseVocab):
     return outputs
   
   #=============================================================
+  # TODO fix this to compute feature-level F1 rather than token-level accuracy
+  def get_bilinear_classifier_with_embeddings(self, layer, embeddings, token_weights, last_output=None, variable_scope=None, reuse=False):
+    """"""
+    
+    recur_layer = layer
+    hidden_keep_prob = 1 if reuse else self.hidden_keep_prob
+    with tf.variable_scope(variable_scope or self.classname):
+      for i in six.moves.range(0, self.n_layers):
+        with tf.variable_scope('FC-%d' % i):
+          layer = classifiers.hidden(layer, self.hidden_size,
+                                    hidden_func=self.hidden_func,
+                                    hidden_keep_prob=hidden_keep_prob)
+      with tf.variable_scope('Classifier'):
+        probabilities = []
+        loss = []
+        predictions = []
+        correct_tokens = []
+        for i, feat in enumerate(self._feats):
+          vs_feat = str(feat).replace('[', '-RSB-').replace(']', '-LSB-')
+          with tf.variable_scope(vs_feat):
+            logits = classifiers.batch_bilinear_classifier(
+              layer, embeddings, self.getlen(feat),
+              hidden_keep_prob=hidden_keep_prob,
+              add_linear=self.add_linear)
+            targets = self.placeholder[:,:,i]
+            
+            #---------------------------------------------------
+            # Compute probabilities/cross entropy
+            # (n x m x c) -> (n x m x c)
+            probabilities.append(tf.nn.softmax(logits))
+            # (n x m), (n x m x c), (n x m) -> ()
+            loss.append(tf.losses.sparse_softmax_cross_entropy(targets, logits, weights=token_weights))
+            
+            #---------------------------------------------------
+            # Compute predictions/accuracy
+            # (n x m x c) -> (n x m)
+            predictions.append(tf.argmax(logits, axis=-1, output_type=tf.int32))
+            # (n x m) (*) (n x m) -> (n x m)
+            correct_tokens.append(nn.equal(targets, predictions[-1]))
+        # (n x m) x f -> (n x m x f)
+        predictions = tf.stack(predictions, axis=-1)
+        # (n x m) x f -> (n x m x f)
+        correct_tokens = tf.stack(correct_tokens, axis=-1)
+        # (n x m x f) -> (n x m)
+        correct_tokens = tf.reduce_prod(correct_tokens, axis=-1) * token_weights
+        # (n x m) -> (n)
+        tokens_per_sequence = tf.reduce_sum(token_weights, axis=-1)
+        # (n x m) -> (n)
+        correct_tokens_per_sequence = tf.reduce_sum(correct_tokens, axis=-1)
+        # (n), (n) -> (n)
+        correct_sequences = nn.equal(tokens_per_sequence, correct_tokens_per_sequence)
+    
+    #-----------------------------------------------------------
+    # Populate the output dictionary
+    outputs = {}
+    outputs['recur_layer'] = recur_layer
+    outputs['targets'] = self.placeholder
+    outputs['probabilities'] = probabilities
+    outputs['loss'] = tf.add_n(loss)
+    
+    outputs['predictions'] = predictions
+    outputs['n_correct_tokens'] = tf.reduce_sum(correct_tokens)
+    outputs['n_correct_sequences'] = tf.reduce_sum(correct_sequences)
+    return outputs
+  
+  #=============================================================
   # TODO finish this
   def get_bilinear_classifier(self, layer, outputs, token_weights, variable_scope=None, reuse=False):
     """"""
@@ -342,6 +408,7 @@ class FeatureVocab(BaseVocab):
       vocab_filename = self.vocab_loadname
       dump = True
     else:
+     self._loaded = False
      return False
    
     with codecs.open(vocab_filename, encoding='utf-8', errors='ignore') as f:
@@ -359,6 +426,7 @@ class FeatureVocab(BaseVocab):
             count = int(match.group(2))
             self._counts[feat][token] = count
     self.index_by_counts(dump=dump)
+    self._loaded = True
     return True
   
   #=============================================================
@@ -454,6 +522,9 @@ class FeatureVocab(BaseVocab):
   @property
   def hidden_size(self):
     return self._config.getint(self, 'hidden_size')
+  @property
+  def add_linear(self):
+    return self._config.getboolean(self, 'add_linear')
   @property
   def n_layers(self):
     return self._config.getint(self, 'n_layers')

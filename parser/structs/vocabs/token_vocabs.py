@@ -46,14 +46,16 @@ class TokenVocab(CountVocab):
     return
   
   #=============================================================
-  def get_input_tensor(self, embed_keep_prob=None, nonzero_init=True, variable_scope=None, reuse=True):
+  def get_input_tensor(self, inputs=None, embed_keep_prob=None, nonzero_init=True, variable_scope=None, reuse=True):
     """"""
     
+    if inputs is None:
+      inputs = self.placeholder
     embed_keep_prob = 1 if reuse else (embed_keep_prob or self.embed_keep_prob)
     
     with tf.variable_scope(variable_scope or self.classname):
       layer = embeddings.token_embedding_lookup(len(self), self.embed_size,
-                                        self.placeholder,
+                                        inputs,
                                         nonzero_init=nonzero_init,
                                         reuse=reuse)
       if embed_keep_prob < 1:
@@ -337,6 +339,60 @@ class TokenVocab(CountVocab):
     
     return outputs
   
+  #=============================================================
+  def get_bilinear_classifier_with_embeddings(self, layer, embeddings, token_weights, variable_scope=None, reuse=False):
+    """"""
+    
+    recur_layer = layer
+    hidden_keep_prob = 1 if reuse else self.hidden_keep_prob
+    with tf.variable_scope(variable_scope or self.classname):
+      for i in six.moves.range(0, self.n_layers):
+        with tf.variable_scope('FC-%d' % i):
+          layer = classifiers.hidden(layer, self.hidden_size,
+                                     hidden_func=self.hidden_func,
+                                     hidden_keep_prob=hidden_keep_prob)
+      with tf.variable_scope('Classifier'):
+        logits = classifiers.batch_bilinear_classifier(
+          layer, embeddings, len(self),
+          hidden_keep_prob=hidden_keep_prob,
+          add_linear=self.add_linear)
+        bucket_size = tf.shape(layer)[-2]
+    targets = self.placeholder
+        
+    #-----------------------------------------------------------
+    # Compute probabilities/cross entropy
+    # (n x m x c) -> (n x m x c)
+    probabilities = tf.nn.softmax(logits)
+    # (n x m), (n x m x c), (n x m) -> ()
+    loss = tf.losses.sparse_softmax_cross_entropy(targets, logits, weights=token_weights)
+    
+    #-----------------------------------------------------------
+    # Compute predictions/accuracy
+    # (n x m x c) -> (n x m)
+    predictions = tf.argmax(logits, axis=-1, output_type=tf.int32)
+    # (n x m) (*) (n x m) -> (n x m)
+    correct_tokens = nn.equal(targets, predictions) * token_weights
+    # (n x m) -> (n)
+    tokens_per_sequence = tf.reduce_sum(token_weights, axis=-1)
+    # (n x m) -> (n)
+    correct_tokens_per_sequence = tf.reduce_sum(correct_tokens, axis=-1)
+    # (n), (n) -> (n)
+    correct_sequences = nn.equal(tokens_per_sequence, correct_tokens_per_sequence)
+    
+    #-----------------------------------------------------------
+    # Populate the output dictionary
+    outputs = {}
+    outputs['recur_layer'] = recur_layer 
+    outputs['hidden_layer'] = layer
+    outputs['targets'] = targets
+    outputs['probabilities'] = probabilities
+    outputs['loss'] = loss
+    
+    outputs['predictions'] = predictions
+    outputs['n_correct_tokens'] = tf.reduce_sum(correct_tokens)
+    outputs['n_correct_sequences'] = tf.reduce_sum(correct_sequences)
+    return outputs
+
   #=============================================================
   def get_unfactored_bilinear_classifier(self, layer, unlabeled_targets, token_weights, variable_scope=None, reuse=False):
     """"""

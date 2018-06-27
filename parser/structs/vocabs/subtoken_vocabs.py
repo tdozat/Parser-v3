@@ -159,6 +159,7 @@ class SubtokenVocab(CountVocab):
     """"""
 
     if super(SubtokenVocab, self).load():
+      self._loaded = True
       return True
     else:
       if os.path.exists(self.token_vocab_savename):
@@ -166,7 +167,8 @@ class SubtokenVocab(CountVocab):
       elif self.token_vocab_loadname and os.path.exists(self.token_vocab_loadname):
         token_vocab_filename = self.token_vocab_loadname
       else:
-       return False
+        self._loaded = False
+        return False
 
       with codecs.open(token_vocab_filename, encoding='utf-8', errors='ignore') as f:
         for line in f:
@@ -178,6 +180,7 @@ class SubtokenVocab(CountVocab):
             self._count(token)
             self._count(token.upper())
       self.index_by_counts(dump=True)
+      self._loaded = True
       return True
 
   #=============================================================

@@ -111,4 +111,12 @@ class BoolHyperparam(NumericHyperparam):
     return config.getboolean(self.section, self.option)
   
   def _rand(self):
-    return np.random.choice([self.lower, self.upper])
+    return np.random.choice([bool(self.lower), bool(self.upper)])
+
+  #=============================================================
+  @property
+  def upper(self):
+    return bool(super(BoolHyperparam, self).upper)
+  @property
+  def lower(self):
+    return bool(super(BoolHyperparam, self).lower)

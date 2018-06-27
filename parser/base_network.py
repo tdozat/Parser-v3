@@ -383,6 +383,7 @@ class BaseNetwork(object):
     config.gpu_options.allow_growth = True
     config.allow_soft_placement = True
     with tf.Session(config=config) as sess:
+      sess.run(tf.variables_initializer(list(non_save_variables)))
       saver.restore(sess, tf.train.latest_checkpoint(self.save_dir))
       if len(conllu_files) == 1 or output_filename is not None:
         self.parse_file(parseset, parse_outputs, sess, output_dir=output_dir, output_filename=output_filename)

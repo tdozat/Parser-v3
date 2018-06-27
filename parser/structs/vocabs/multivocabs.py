@@ -66,7 +66,7 @@ class Multivocab(BaseVocab, list):
     pretrained_files = config.getlist(self, 'pretrained_files')
     names = config.getlist(self, 'names')
     if use_pretrained_vocab:
-      if pretrained_files is None:
+      if not pretrained_files:
         pretrained_vocabs = [self._pretrained_vocab_class(config=config)]
       else:
         pretrained_vocabs = [self._pretrained_vocab_class(pretrained_file=pretrained_file, pretrained_name=pretrained_name, config=config) for pretrained_file, name in zip(pretrained_files, names)]
@@ -99,7 +99,7 @@ class Multivocab(BaseVocab, list):
     
     status = True
     for vocab in self:
-      status = (vocab.count(train_conllus) if hasattr(vocab, 'count') else True) and status
+      status = (vocab._loaded or vocab.count(train_conllus) if hasattr(vocab, 'count') else True) and status
     return status
   
   #=============================================================
