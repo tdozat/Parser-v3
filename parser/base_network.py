@@ -213,7 +213,7 @@ class BaseNetwork(object):
             while (not self.max_steps or current_step < self.max_steps) and \
                   (not self.max_steps_without_improvement or steps_since_best < self.max_steps_without_improvement) and \
                   (not self.n_passes or current_epoch < len(trainset.conllu_files)*self.n_passes):
-              if current_step >= 1000 and self.switch_optimizers:
+              if steps_since_best >= self.print_every and self.switch_optimizers:
                 train_tensors = amsgrad_train_tensors
                 current_optimizer = 'AMSGrad'
               for batch in trainset.batch_iterator(shuffle=True):
@@ -301,7 +301,7 @@ class BaseNetwork(object):
           while (not self.max_steps or current_step < self.max_steps) and \
                 (not self.max_steps_without_improvement or steps_since_best < self.max_steps_without_improvement) and \
                 (not self.n_passes or current_epoch < len(trainset.conllu_files)*self.n_passes):
-            if self.switch_optimizers and current_step >= 1000 and current_optimizer != 'AMSGrad':
+            if steps_since_best >= self.print_every and self.switch_optimizers and current_optimizer != 'AMSGrad':
               train_tensors = amsgrad_train_tensors
               current_optimizer = 'AMSGrad'
               print('\t', end='')

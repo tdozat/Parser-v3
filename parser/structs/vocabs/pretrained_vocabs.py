@@ -41,7 +41,6 @@ from collections import Counter
 import numpy as np
 import tensorflow as tf
  
-from debug.timer import Timer
 from parser.structs.vocabs.base_vocabs import SetVocab
 from . import conllu_vocabs as cv
 from parser.neural import embeddings
@@ -109,21 +108,20 @@ class PretrainedVocab(SetVocab):
     
     cur_idx = len(self.special_tokens)
     tokens = []
-    with Timer('Reading embedding matrix from text'):
-      # Determine the dimensions of the embedding matrix
-      with open_func(self.pretrained_file, 'rb') as f:
-        reader = codecs.getreader('utf-8')(f, **kwargs)
-        first_line = reader.readline().rstrip().split(' ')
-        if len(first_line) == 2: # It has a header that gives the dimensions
-          has_header = True
-          shape = [int(first_line[0])+cur_idx, int(first_line[1])]
-        else: # We have to compute the dimensions ourself
-          has_header = False
-          for line_num, line in enumerate(reader):
-            pass
-          shape = [cur_idx+line_num+1, len(line.split())-1]
-        shape[0] = min(shape[0], max_embed_count+cur_idx) if max_embed_count else shape[0]
-        embeddings = np.zeros(shape, dtype=np.float32)
+    # Determine the dimensions of the embedding matrix
+    with open_func(self.pretrained_file, 'rb') as f:
+      reader = codecs.getreader('utf-8')(f, **kwargs)
+      first_line = reader.readline().rstrip().split(' ')
+      if len(first_line) == 2: # It has a header that gives the dimensions
+        has_header = True
+        shape = [int(first_line[0])+cur_idx, int(first_line[1])]
+      else: # We have to compute the dimensions ourself
+        has_header = False
+        for line_num, line in enumerate(reader):
+          pass
+        shape = [cur_idx+line_num+1, len(line.split())-1]
+      shape[0] = min(shape[0], max_embed_count+cur_idx) if max_embed_count else shape[0]
+      embeddings = np.zeros(shape, dtype=np.float32)
       
       # Fill in the embedding matrix
       #with open_func(self.pretrained_file, 'rt', encoding='utf-8') as f:
@@ -149,10 +147,9 @@ class PretrainedVocab(SetVocab):
 
   #=============================================================
   def dump(self):
-    with Timer('Saving to pickle'):
-      if self.save_as_pickle:
-        with open(self.vocab_savename, 'wb') as f:
-          pkl.dump((self._tokens, self._embeddings), f, protocol=pkl.HIGHEST_PROTOCOL)
+    if self.save_as_pickle:
+      with open(self.vocab_savename, 'wb') as f:
+        pkl.dump((self._tokens, self._embeddings), f, protocol=pkl.HIGHEST_PROTOCOL)
     return
 
   #=============================================================
@@ -170,14 +167,13 @@ class PretrainedVocab(SetVocab):
       self._loaded = False
       return False
 
-    with Timer('Reading embedding matrix from pickle'):
-      with open(vocab_filename, 'rb') as f:
-        self._tokens, self._embeddings = pkl.load(f, encoding='utf-8', errors='ignore')
-      cur_idx = len(self.special_tokens)
-      for token in self._tokens:
-        self[token] = cur_idx
-        cur_idx += 1
-      self._embedding_size = self._embeddings.shape[1]
+    with open(vocab_filename, 'rb') as f:
+      self._tokens, self._embeddings = pkl.load(f, encoding='utf-8', errors='ignore')
+    cur_idx = len(self.special_tokens)
+    for token in self._tokens:
+      self[token] = cur_idx
+      cur_idx += 1
+    self._embedding_size = self._embeddings.shape[1]
     if dump:
       self.dump()
     self._loaded = True
@@ -192,7 +188,8 @@ class PretrainedVocab(SetVocab):
     return self._config.getstr(self, 'vocab_loadname')
   @property
   def vocab_savename(self):
-    return os.path.splitext(self.pretrained_file)[0] + '.pkl'
+    return os.path.join(self.save_dir, self.field + '-' + self.name + '.pkl')
+    #return os.path.splitext(self.pretrained_file)[0] + '.pkl'
   @property
   def name(self):
     return self._name
