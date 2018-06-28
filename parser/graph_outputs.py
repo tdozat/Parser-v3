@@ -178,17 +178,12 @@ class GraphOutputs(object):
         dephead_probs = deptree_probs.sum(axis=-1)
         # (n x m x m) -> (n x m)
         #dephead_preds = np.argmax(dephead_probs, axis=-1)
-        try:
-          dephead_preds = np.zeros(dephead_probs.shape[:2], dtype=np.int32)
-          for i, (_dephead_probs, length) in enumerate(zip(dephead_probs, lengths)):
-            #print(_dephead_probs)
-            #input()
-            cle = chuliu_edmonds_one_root(_dephead_probs[:length, :length])
-            dephead_preds[i, :length] = cle
-        except:
-          with open('debug.log', 'w') as f:
-            f.write('{}\n'.format(cle))
-          raise
+        dephead_preds = np.zeros(dephead_probs.shape[:2], dtype=np.int32)
+        for i, (_dephead_probs, length) in enumerate(zip(dephead_probs, lengths)):
+          #print(_dephead_probs)
+          #input()
+          cle = chuliu_edmonds_one_root(_dephead_probs[:length, :length])
+          dephead_preds[i, :length] = cle
         # ()
         bucket_size = dephead_preds.shape[1]
         # (n x m) -> (n x m x m)

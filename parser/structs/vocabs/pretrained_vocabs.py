@@ -147,8 +147,9 @@ class PretrainedVocab(SetVocab):
 
   #=============================================================
   def dump(self):
-    if self.save_as_pickle:
-      with open(self.vocab_savename, 'wb') as f:
+    if self.save_as_pickle and not os.path.exists(self.vocab_loadname):
+      os.makedirs(os.path.dirname(self.vocab_loadname), exist_ok=True)
+      with open(self.vocab_loadname, 'wb') as f:
         pkl.dump((self._tokens, self._embeddings), f, protocol=pkl.HIGHEST_PROTOCOL)
     return
 
@@ -156,13 +157,8 @@ class PretrainedVocab(SetVocab):
   def load(self):
     """"""
 
-    dump = None
-    if os.path.exists(self.vocab_savename):
-      vocab_filename = self.vocab_savename
-      dump = False
-    elif self.vocab_loadname and os.path.exists(self.vocab_loadname):
+    if self.vocab_loadname and os.path.exists(self.vocab_loadname):
       vocab_filename = self.vocab_loadname
-      dump = True
     else:
       self._loaded = False
       return False
@@ -174,8 +170,6 @@ class PretrainedVocab(SetVocab):
       self[token] = cur_idx
       cur_idx += 1
     self._embedding_size = self._embeddings.shape[1]
-    if dump:
-      self.dump()
     self._loaded = True
     return True
 
@@ -186,10 +180,6 @@ class PretrainedVocab(SetVocab):
   @property
   def vocab_loadname(self):
     return self._config.getstr(self, 'vocab_loadname')
-  @property
-  def vocab_savename(self):
-    return os.path.join(self.save_dir, self.field + '-' + self.name + '.pkl')
-    #return os.path.splitext(self.pretrained_file)[0] + '.pkl'
   @property
   def name(self):
     return self._name
