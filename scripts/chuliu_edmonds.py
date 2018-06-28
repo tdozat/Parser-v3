@@ -129,6 +129,7 @@ def chuliu_edmonds(scores):
 def chuliu_edmonds_one_root(scores):
   """"""
 
+  scores = scores.astype(np.float64)
   tree = chuliu_edmonds(scores)
   roots_to_try = np.where(np.equal(tree[1:], 0))[0]+1
   if len(roots_to_try) == 1:
