@@ -130,35 +130,44 @@ def chuliu_edmonds_one_root(scores):
   """"""
 
   tree = chuliu_edmonds(scores)
-  roots = np.where(np.equal(tree[1:], 0))[0]+1
-  if len(roots) == 1:
+  roots_to_try = np.where(np.equal(tree[1:], 0))[0]+1
+  if len(roots_to_try) == 1:
     return tree
-  elif len(roots) == 0:
-    root = np.argmax(scores[0,:])
+    
+  # Look at all roots that are more likely than we would expect
+  if len(roots_to_try) == 0:
+    roots_to_try = np.where(scores[1:,0] >= 1/len(scores))[0]+1
+  # *sigh* just grab the most likely one
+  if len(roots_to_try) == 0:
+    roots_to_try = np.array([np.argmax(scores[1:,0])+1])
+
+  #-------------------------------------------------------------
+  def set_root(scores, root):
+    root_score = scores[root,0]
+    scores = np.array(scores)
     scores[1:,0] = 0
     scores[root] = 0
     scores[root,0] = 1
-    return chuliu_edmonds(scores)
-  else:
-    best_score, best_tree = -np.inf, None # This is what's causing it to crash
-    for root in roots:
-      _scores = np.array(scores)
-      _scores[1:,0] = 0
-      _scores[root] = 0
-      _scores[root,0] = 1
-      _tree = chuliu_edmonds_one_root(_scores)
-      tree_probs = _scores[np.arange(len(_scores)), _tree]
-      tree_score = np.log(tree_probs).sum() if tree_probs.all() else -np.inf
-      if tree_score > best_score:
-        best_score = tree_score
-        best_tree = _tree
-    try:
-      assert best_tree is not None
-    except:
-      with open('debug2.log', 'w') as f:
-        f.write('{}: {}\n'.format(tree, scores))
-        f.write('{}: {}\n'.format(_tree, _scores, tree_score))
-    return best_tree
+    return scores, root_score
+  #-------------------------------------------------------------
+
+  best_score, best_tree = -np.inf, None # This is what's causing it to crash
+  for root in roots_to_try:
+    _scores, root_score = set_root(scores, root)
+    _tree = chuliu_edmonds(_scores)
+    tree_probs = _scores[np.arange(len(_scores)), _tree]
+    tree_score = np.log(tree_probs).sum()+np.log(root_score) if tree_probs.all() else -np.inf
+    if tree_score > best_score:
+      best_score = tree_score
+      best_tree = _tree
+  try:
+    assert best_tree is not None
+  except:
+    with open('debug.log', 'w') as f:
+      f.write('{}: {}, {}\n'.format(tree, scores, roots_to_try))
+      f.write('{}: {}, {}\n'.format(_tree, _scores, tree_score))
+    raise
+  return best_tree
   
 #***************************************************************
 def main(n=10):
