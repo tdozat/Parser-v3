@@ -16,7 +16,7 @@ with codecs.open(os.path.join(unilang_dir, 'uni_1000-ud-train.conllu'), 'w') as 
      codecs.open(os.path.join(unilang_dir, 'uni_1000-ud-dev.txt'), 'w') as unidev_txt:
   for lang_dir in os.listdir(conll18_dir):
     conll_lang_dir = os.path.join(conll18_dir, lang_dir)
-    if conll_lang_dir != unilang_dir:
+    if conll_lang_dir != unilang_dir and not (conll_lang_dir.endswith('-MG') or conll_lang_dir.endswith('ITTB_XV')):
       print(conll_lang_dir)
       # Train conllu
       train_conllu = glob.glob(os.path.join(conll_lang_dir, '*-train.conllu'))

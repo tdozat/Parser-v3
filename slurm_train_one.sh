@@ -28,6 +28,7 @@ export LD_LIBRARY_PATH=/u/scr/pengqi/anaconda3_slurm/lib:$LD_LIBRARY_PATH
 cd /u/scr/pengqi/Parser-v3
 
 STACK=stack
+XPOSFeatureVocabTreebanks=(Ancient_Greek-Perseus Arabic-PADT Czech-CAC Czech-FicTree Czech-PDT Indonesian-GSD Latin-Perseus_XV)
 
 mkdir -p $STACK
 echo $LANGUAGE $TREEBANK $LC $TB
@@ -49,15 +50,29 @@ then
     pretrained_file=data/word2vec/$LANGUAGE/"$LC".vectors.xz
   fi
 
+  if [[ " ${XPOSFeatureVocabTreebanks[*]} " == "$LANGUAGE-$TREEBANK" ]]
+  then
+    TaggerNetworkFlags="--TaggerNetwork output_vocab_classes=UPOSTokenVocab:XPOSFeatureVocab:UFeatsFeatureVocab"
+    ParserNetworkFlags="--ParserNetwork input_vocab_classes=FormMultivocab:UPOSTokenVocab:XPOSFeatureVocab:UFeatsFeatureVocab:LemmaTokenVocab"
+  else
+    TaggerNetworkFlags=""
+    ParserNetworkFlags=""
+  fi
+
   basename=CoNLL18/UD_$LANGUAGE-$TREEBANK
-  basename1=CoNLL18/UD_$LANGUAGE-$TREEBANK
+  if [[ $TREEBANK == *_XV ]]
+  then
+    basename1=CoNLL18/UD_$LANGUAGE-${TREEBANK:0:-3}
+  else
+    basename1=CoNLL18/UD_$LANGUAGE-$TREEBANK
+  fi
   train_conllus=data/$basename/"$LC"_$TB-ud-train.conllu
   dev_conllus=data/$basename/"$LC"_$TB-ud-dev.conllu
   if [ ! -e $dev_conllus ]
   then
     dev_conllus=$train_conllus
   fi
-  #python main.py --save_dir saves/$basename1/Tagger train TaggerNetwork --DEFAULT train_conllus=$train_conllus dev_conllus=$dev_conllus --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen
+  python main.py --save_dir saves/$basename1/Tagger train TaggerNetwork --DEFAULT train_conllus=$train_conllus dev_conllus=$dev_conllus --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen $TaggerNetworkFlags
   python main.py --save_dir saves/$basename1/Tagger run $train_conllus $dev_conllus
 
   tagged_train_conllus=saves/$basename1/Tagger/parsed/$train_conllus
@@ -67,7 +82,7 @@ then
     python scripts/reinsert_compounds.py $dev_conllus $tagged_dev_conllus
   fi
 
-  python main.py --save_dir saves/$basename1/Parser train ParserNetwork --DEFAULT train_conllus=$tagged_train_conllus dev_conllus=$tagged_dev_conllus --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen
+  python main.py --save_dir saves/$basename1/Parser train ParserNetwork --DEFAULT train_conllus=$tagged_train_conllus dev_conllus=$tagged_dev_conllus --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen $ParserNetworkFlags
   python main.py --save_dir saves/$basename1/Parser run $tagged_train_conllu $tagged_dev_conllus
 
   if [ $? -eq 0 ]

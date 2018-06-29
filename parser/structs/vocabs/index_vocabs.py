@@ -170,7 +170,7 @@ class IndexVocab(BaseVocab):
           dist_ids = tf.to_float(tf.tile(tf.abs(head_ids - dep_ids), [batch_size, 1, 1]))+1e-12
           # (n x m x m), (n x m x m) -> (n x m x m)
           #dist_kld = (dist_ids * tf.log(dist_lamda / dist_ids) + dist_ids - dist_lamda)
-          dist_kld = -2*tf.log(tf.abs(dist_ids - dist_lamda) + 1)
+          dist_kld = -tf.log((dist_ids - dist_lamda)**2/2 + 1)
           # add the KL-divergence to the logits
           # (n x m x m), (n x m x m) -> (n x m x m)
           logits += tf.stop_gradient(dist_kld)

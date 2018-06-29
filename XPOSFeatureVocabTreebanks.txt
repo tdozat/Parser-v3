@@ -1,0 +1,13 @@
+# When training these treebanks as taggers, include --TaggerNetwork output_vocab_classes=UPOSTokenVocab:XPOSFeatureVocab:UFeatsFeatureVocab
+# When training these treebanks as parsers, include --ParserNetwork input_vocab_classes=FormMultivocab:UPOSTokenVocab:XPOSFeatureVocab:UFeatsFeatureVocab:LemmaTokenVocab
+# 
+# Note that `XPOSTokenVocab` has been replaced with `XPOSFeatureVocab`!
+# There are other treebanks with composite XPOS tags but they're variable-length lists rather than dicts (like UFeats) or fixed-length vectors (like these)
+
+Ancient_Greek-Perseus
+Arabic-PADT
+Czech-CAC
+Czech-FicTree
+Czech-PDT
+Indonesian-GSD
+Latin-Perseus
