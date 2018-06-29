@@ -103,6 +103,9 @@ then
     python scripts/reinsert_compounds.py $dev_conllus $parsed_dev_conllus
   fi
 
+  # Save the eval output to the treebank save directory
+  python scripts/conll18_ud_eval.py -v $dev_conllus $parsed_dev_conllus > saves/$basename1/evaluation.txt
+
   if [ $? -eq 0 ]
   then
     echo "Success" > $STACK/$LANGUAGE-$TREEBANK
@@ -110,6 +113,4 @@ then
     echo "Failure" > $STACK/$LANGUAGE-$TREEBANK
   fi
 
-  # Save the eval output to the treebank save directory
-  python scripts/conll18_ud_eval.py -v $dev_conllus $parsed_dev_conllus > saves/$basename1/evaluation.txt
 fi
