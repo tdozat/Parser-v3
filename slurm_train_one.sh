@@ -28,13 +28,14 @@ export LD_LIBRARY_PATH=/u/scr/pengqi/anaconda3_slurm/lib:$LD_LIBRARY_PATH
 cd /u/scr/pengqi/Parser-v3
 
 STACK=stack
-XPOSFeatureVocabTreebanks=(Ancient_Greek-Perseus Arabic-PADT Czech-CAC Czech-FicTree Czech-PDT Indonesian-GSD Latin-Perseus_XV)
 
 mkdir -p $STACK
 echo $LANGUAGE $TREEBANK $LC $TB
 if [ ! -e $STACK/$LANGUAGE-$TREEBANK ]
 then
   touch $STACK/$LANGUAGE-$TREEBANK
+  # For Chinese, the vectors are named differently
+  # For Norwegian, there are two sets of vectors
   if [ "$LC" == "zh" ]
   then
     pretrained_file=data/word2vec/"$LANGUAGE"T/"$LC".vectors.xz
@@ -50,15 +51,19 @@ then
     pretrained_file=data/word2vec/$LANGUAGE/"$LC".vectors.xz
   fi
 
+
+  # Some languages have composite XPOS tags that can be treated like Features
+  XPOSFeatureVocabTreebanks=(Ancient_Greek-Perseus Arabic-PADT Czech-CAC Czech-FicTree Czech-PDT Indonesian-GSD Latin-Perseus_XV)
   if [[ " ${XPOSFeatureVocabTreebanks[*]} " == "$LANGUAGE-$TREEBANK" ]]
   then
-    TaggerNetworkFlags="--TaggerNetwork output_vocab_classes=UPOSTokenVocab:XPOSFeatureVocab:UFeatsFeatureVocab"
-    ParserNetworkFlags="--ParserNetwork input_vocab_classes=FormMultivocab:UPOSTokenVocab:XPOSFeatureVocab:UFeatsFeatureVocab:LemmaTokenVocab"
+    TaggerNetworkFlags="--TaggerNetwork output_vocab_classes=UPOSTokenVocab:XPOSFeatureVocab:UFeatsFeatureVocab --FormSubtokenVocab min_occur_count=3"
+    ParserNetworkFlags="--ParserNetwork input_vocab_classes=FormMultivocab:UPOSTokenVocab:XPOSFeatureVocab:UFeatsFeatureVocab:LemmaTokenVocab --FormSubtokenVocab min_occur_count=3"
   else
     TaggerNetworkFlags=""
     ParserNetworkFlags=""
   fi
 
+  # We want to save the XV datasets without the XV at the end (to avoid downstream issues)
   basename=CoNLL18/UD_$LANGUAGE-$TREEBANK
   if [[ $TREEBANK == *_XV ]]
   then
@@ -68,13 +73,18 @@ then
   fi
   train_conllus=data/$basename/"$LC"_$TB-ud-train.conllu
   dev_conllus=data/$basename/"$LC"_$TB-ud-dev.conllu
+
+  # If the validation files don't exist, use the training files
   if [ ! -e $dev_conllus ]
   then
     dev_conllus=$train_conllus
   fi
+
+  # Train the tagger and make sure it runs fine
   python main.py --save_dir saves/$basename1/Tagger train TaggerNetwork --DEFAULT train_conllus=$train_conllus dev_conllus=$dev_conllus --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen $TaggerNetworkFlags
   python main.py --save_dir saves/$basename1/Tagger run $train_conllus $dev_conllus
 
+  # Grab the re-tagged files and add the comments/compounds back in
   tagged_train_conllus=saves/$basename1/Tagger/parsed/$train_conllus
   tagged_dev_conllus=saves/$basename1/Tagger/parsed/$dev_conllus
   python scripts/reinsert_compounds.py $train_conllus $tagged_train_conllus
@@ -82,6 +92,7 @@ then
     python scripts/reinsert_compounds.py $dev_conllus $tagged_dev_conllus
   fi
 
+  # Train the Parser and make sure it runs fine
   python main.py --save_dir saves/$basename1/Parser train ParserNetwork --DEFAULT train_conllus=$tagged_train_conllus dev_conllus=$tagged_dev_conllus --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen $ParserNetworkFlags
   python main.py --save_dir saves/$basename1/Parser run $tagged_train_conllu $tagged_dev_conllus
 
