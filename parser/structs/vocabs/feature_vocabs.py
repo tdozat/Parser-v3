@@ -62,7 +62,7 @@ class FeatureVocab(BaseVocab):
       self.ROOT_STR = self.pad_str
       self.ROOT_IDX = 0
       self._feats = list()
-      self._feat_set = dict()
+      self._feat_set = set()
     
   #=============================================================
   def get_input_tensor(self, embed_keep_prob=None, nonzero_init=True, variable_scope=None, reuse=True):
@@ -321,7 +321,10 @@ class FeatureVocab(BaseVocab):
   def _count(self, multitoken):
     if not self.cased:
       multitoken = multitoken.lower()
-    multitoken = multitoken.split(self.separator)
+    if self.separator:
+      multitoken = multitoken.split(self.separator)
+    else:
+      multitoken = list(multitoken)
     for i, token in enumerate(multitoken):
       if token != '_':
         if self.keyed:
@@ -329,10 +332,11 @@ class FeatureVocab(BaseVocab):
         else:
           feat = str(i)
         
-        if feat not in self._feat_set:
-          self._feats.append(feat)
-          self._feat_set.add(feat)
-        self._counts[feat][token] += 1
+        if token != self.PAD_STR:
+          if feat not in self._feat_set:
+            self._feats.append(feat)
+            self._feat_set.add(feat)
+          self._counts[feat][token] += 1
     return
   
   #=============================================================
@@ -378,7 +382,11 @@ class FeatureVocab(BaseVocab):
            (not self.max_embed_count or cur_idx < self.max_embed_count+1):
           self[feat, token] = cur_idx
           cur_idx += 1
+    self._str2idx = dict(self._str2idx)
+    self._idx2str = dict(self._idx2str)
     self._depth = len(self)
+    if self.keyed:
+      self._feats.sort()
     if dump:
       self.dump()
     return
@@ -437,7 +445,10 @@ class FeatureVocab(BaseVocab):
         key = key.lower()
       if key == '_':
         return [self.PAD_IDX for _ in self._feats]
-      multitoken = key.split(self.separator)
+      if self.separator:
+        multitoken = key.split(self.separator)
+      else:
+        multitoken = list(key)
       if self.keyed:
         key_dict = {}
         for token in multitoken:
@@ -450,8 +461,11 @@ class FeatureVocab(BaseVocab):
       if self.keyed:
         multitoken = ['{}={}'.format(feat, self._idx2str[feat].get(key, self.UNK_STR)) for feat, key in zip(self._feats, key) if key != self.PAD_IDX]
       else:
-        multitoken = [self._idx2str[feat].get(key, self.UNK_STR) for feat, key in enumerate(key)]
-      return self.separator.join(multitoken) or '_'
+        multitoken = [self._idx2str[str(feat)].get(key, self.UNK_STR) for feat, key in enumerate(key)]
+      if np.sum(key) > 0:
+        return self.separator.join(multitoken)
+      else:
+        return '_'
     else:
       return [self[k] for k in key]
   

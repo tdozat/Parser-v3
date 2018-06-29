@@ -140,7 +140,7 @@ class GraphOutputs(object):
     
     if 'form' in probabilities:
       form_probs = probabilities['form']
-      if isinstance(form_probs, tuple):
+      if isinstance(form_probs, (tuple, list)):
         form_samples, form_probs = form_probs
         form_preds = np.argmax(form_probs, axis=-1)
         predictions['form'] = form_samples[np.arange(len(form_preds)), form_preds]
@@ -157,7 +157,7 @@ class GraphOutputs(object):
       predictions['upos'] = upos_preds
     if 'xpos' in probabilities:
       xpos_probs = probabilities['xpos']
-      if isinstance(xpos_probs, tuple):
+      if isinstance(xpos_probs, (tuple, list)):
         xpos_preds = np.concatenate([np.argmax(xpos_prob_mat, axis=-1)[:,:,None] for xpos_prob_mat in xpos_probs], axis=-1)
       else:
         xpos_preds = np.argmax(xpos_probs, axis=-1)

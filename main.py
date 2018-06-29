@@ -154,6 +154,7 @@ def train(**kwargs):
     config_file = os.path.join(save_dir, 'config.cfg')
   else:
     os.makedirs(save_dir)
+    os.system('git rev-parse HEAD >> {}'.format(os.path.join(save_dir, 'HEAD')))
   
   kwargs['DEFAULT']['save_dir'] = save_dir
   config = Config(config_file=config_file, **kwargs)
@@ -225,6 +226,7 @@ def hpo(**kwargs):
     sys.exit(0)
   else:
     os.mkdir(save_dir)
+    os.system('git rev-parse HEAD >> {}'.format(os.path.join(save_dir, 'HEAD')))
   
   kwargs['DEFAULT']['save_dir'] = save_dir
   config = Config(config_file=config_file, **kwargs)

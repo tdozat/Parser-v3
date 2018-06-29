@@ -115,6 +115,12 @@ class TaggerNetwork(BaseNetwork):
             layer, upos_embed, token_weights,
             reuse=reuse)
           self._evals.add('xpos')
+        if 'ufeats' in output_vocabs and not self.share_layer:
+          vocab = output_vocabs['ufeats']
+          outputs[vocab.field] = vocab.get_bilinear_classifier_with_embeddings(
+            layer, upos_embed, token_weights,
+            reuse=reuse)
+          self._evals.add('ufeats')
         #if 'ufeats' in output_vocabs and not self.share_layer:
         #  vocab = output_vocabs['ufeats']
         #  outputs[vocab.field] = vocab.get_bilinear_classifier_with_embeddings(
@@ -130,7 +136,7 @@ class TaggerNetwork(BaseNetwork):
         self._evals.add('xpos')
         if last_output is None:
           last_output = outputs[vocab.field]
-      if 'ufeats' in output_vocabs:
+      if 'ufeats' in output_vocabs and ('upos' not in output_vocabs or self.share_layer):
       #if 'ufeats' in output_vocabs and ('upos' not in output_vocabs or self.share_layer):
         vocab = output_vocabs['ufeats']
         outputs[vocab.field] = vocab.get_linear_classifier(
