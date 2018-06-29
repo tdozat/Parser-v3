@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --job-name=tagparse
 #SBATCH --ntasks-per-node=1
-#SBATCH --mem=25600
+#SBATCH --mem=10240
 #SBATCH --gres=gpu:1
 #SBATCH --output=/sailhome/pengqi/logs/slurm-%j.out
 #SBATCH --mail-user=pengqi@cs.stanford.edu
@@ -27,7 +27,7 @@ export PATH=/u/scr/pengqi/anaconda3_slurm/bin:$PATH
 export LD_LIBRARY_PATH=/u/scr/pengqi/anaconda3_slurm/lib:$LD_LIBRARY_PATH
 cd /u/scr/pengqi/Parser-v3
 
-STACK=stack
+STACK=stack_dqm
 
 mkdir -p $STACK
 echo $LANGUAGE $TREEBANK $LC $TB
@@ -36,28 +36,28 @@ then
   touch $STACK/$LANGUAGE-$TREEBANK
   if [ "$LC" == "zh" ]
   then
-    pretrained_file=data/word2vec/"$LANGUAGE"T/"$LC".vectors.xz
+    pretrained_file=data/embeddings/"$LANGUAGE"T/"$LC".vectors.xz
   elif [ "$LC" == "no" ]
   then
     if [ "$TB" == "bokmaal" ]
     then
-      pretrained_file=data/word2vec/"$LANGUAGE"-Bokmaal/"$LC"_bokmaal.vectors.xz
+      pretrained_file=data/embeddings/"$LANGUAGE"-Bokmaal/"$LC"_bokmaal.vectors.xz
     else
-      pretrained_file=data/word2vec/"$LANGUAGE"-Nynorsk/"$LC"_nynorsk.vectors.xz
+      pretrained_file=data/embeddings/"$LANGUAGE"-Nynorsk/"$LC"_nynorsk.vectors.xz
     fi
   else
-    pretrained_file=data/word2vec/$LANGUAGE/"$LC".vectors.xz
+    pretrained_file=data/embeddings/$LANGUAGE/"$LC".vectors.xz
   fi
 
   basename=CoNLL18/UD_$LANGUAGE-$TREEBANK
-  basename1=CoNLL18/UD_$LANGUAGE-$TREEBANK
+  basename1=CoNLL18_DQM/UD_$LANGUAGE-$TREEBANK
   train_conllus=data/$basename/"$LC"_$TB-ud-train.conllu
   dev_conllus=data/$basename/"$LC"_$TB-ud-dev.conllu
   if [ ! -e $dev_conllus ]
   then
     dev_conllus=$train_conllus
   fi
-  #python main.py --save_dir saves/$basename1/Tagger train TaggerNetwork --DEFAULT train_conllus=$train_conllus dev_conllus=$dev_conllus --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen
+  python main.py --save_dir saves/$basename1/Tagger train TaggerNetwork --DEFAULT train_conllus=$train_conllus dev_conllus=$dev_conllus --FormPretrainedVocab pretrained_file=$pretrained_file --config_file config/DQM17.cfg --force --noscreen
   python main.py --save_dir saves/$basename1/Tagger run $train_conllus $dev_conllus
 
   tagged_train_conllus=saves/$basename1/Tagger/parsed/$train_conllus
@@ -67,7 +67,7 @@ then
     python scripts/reinsert_compounds.py $dev_conllus $tagged_dev_conllus
   fi
 
-  python main.py --save_dir saves/$basename1/Parser train ParserNetwork --DEFAULT train_conllus=$tagged_train_conllus dev_conllus=$tagged_dev_conllus --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen
+  python main.py --save_dir saves/$basename1/Parser train ParserNetwork --DEFAULT train_conllus=$tagged_train_conllus dev_conllus=$tagged_dev_conllus --FormPretrainedVocab pretrained_file=$pretrained_file --config_file config/DQM17.cfg --force --noscreen
   python main.py --save_dir saves/$basename1/Parser run $tagged_train_conllu $tagged_dev_conllus
 
   if [ $? -eq 0 ]
