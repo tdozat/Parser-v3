@@ -158,7 +158,7 @@ class Optimizer(object):
           with tf.device(original_variable.device):
             variable = tf.get_variable(name, shape=shape,
                                        initializer=initializer,
-                                       collections=[tf.GraphKeys.GLOBAL_VARIABLES, tf.GraphKeys.MOVING_AVERAGE_VARIABLES],
+                                       collections=[tf.GraphKeys.GLOBAL_VARIABLES, 'non_save_variables'],
                                        trainable=False)
       self._accumulators[key] = variable
     return variable
