@@ -96,10 +96,20 @@ then
   python main.py --save_dir saves/$basename1/Parser train ParserNetwork --DEFAULT train_conllus=$tagged_train_conllus dev_conllus=$tagged_dev_conllus --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen $ParserNetworkFlags
   python main.py --save_dir saves/$basename1/Parser run $tagged_train_conllu $tagged_dev_conllus
 
+  parsed_train_conllus=saves/$basename1/Parser/parsed/$tagger_train_conllus
+  parsed_dev_conllus=saves/$basename1/Parser/parsed/$tagger_dev_conllus
+  python scripts/reinsert_compounds.py $train_conllus $parsed_train_conllus
+  if [[ "$train_conllus" != "$dev_conllus" ]]; then
+    python scripts/reinsert_compounds.py $dev_conllus $parsed_dev_conllus
+  fi
+
   if [ $? -eq 0 ]
   then
     echo "Success" > $STACK/$LANGUAGE-$TREEBANK
   else
     echo "Failure" > $STACK/$LANGUAGE-$TREEBANK
   fi
+
+  # Save the eval output to the treebank save directory
+  python scripts/conll18_ud_eval.py -v $dev_conllus $parsed_dev_conllus > saves/$basename1/evaluation.txt
 fi
