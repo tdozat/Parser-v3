@@ -81,7 +81,7 @@ then
   fi
 
   # Train the tagger and make sure it runs fine
-  python main.py --save_dir saves/$basename1/Tagger train TaggerNetwork --DEFAULT train_conllus=$train_conllus dev_conllus=$dev_conllus --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen $TaggerNetworkFlags
+  python main.py --save_dir saves/$basename1/Tagger train TaggerNetwork --DEFAULT train_conllus=$train_conllus dev_conllus=$dev_conllus LANG=$LANGUAGE TREEBANK=$TREEBANK LC=$LC TB=$TB --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen $TaggerNetworkFlags
   python main.py --save_dir saves/$basename1/Tagger run $train_conllus $dev_conllus
 
   # Grab the re-tagged files and add the comments/compounds back in
@@ -93,7 +93,7 @@ then
   fi
 
   # Train the Parser and make sure it runs fine
-  python main.py --save_dir saves/$basename1/Parser train ParserNetwork --DEFAULT train_conllus=$tagged_train_conllus dev_conllus=$tagged_dev_conllus --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen $ParserNetworkFlags
+  python main.py --save_dir saves/$basename1/Parser train ParserNetwork --DEFAULT train_conllus=$tagged_train_conllus dev_conllus=$tagged_dev_conllus LANG=$LANGUAGE TREEBANK=$TREEBANK LC=$LC TB=$TB --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen $ParserNetworkFlags
   python main.py --save_dir saves/$basename1/Parser run $tagged_train_conllu $tagged_dev_conllus
 
   parsed_train_conllus=saves/$basename1/Parser/parsed/$tagger_train_conllus
