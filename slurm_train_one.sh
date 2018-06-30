@@ -96,8 +96,8 @@ then
   python main.py --save_dir saves/$basename1/Parser train ParserNetwork --DEFAULT train_conllus=$tagged_train_conllus dev_conllus=$tagged_dev_conllus LANG=$LANGUAGE TREEBANK=$TREEBANK LC=$LC TB=$TB --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen $ParserNetworkFlags
   python main.py --save_dir saves/$basename1/Parser run $tagged_train_conllu $tagged_dev_conllus
 
-  parsed_train_conllus=saves/$basename1/Parser/parsed/$tagger_train_conllus
-  parsed_dev_conllus=saves/$basename1/Parser/parsed/$tagger_dev_conllus
+  parsed_train_conllus=saves/$basename1/Parser/parsed/$tagged_train_conllus
+  parsed_dev_conllus=saves/$basename1/Parser/parsed/$tagged_dev_conllus
   python scripts/reinsert_compounds.py $train_conllus $parsed_train_conllus
   if [[ "$train_conllus" != "$dev_conllus" ]]; then
     python scripts/reinsert_compounds.py $dev_conllus $parsed_dev_conllus
