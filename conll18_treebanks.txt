@@ -10,7 +10,7 @@ Old_French	SRCMF	fro	srcmf
 English	EWT	en	ewt
 Russian	Taiga_XV	ru	taiga_xv
 Vietnamese	VTB	vi	vtb
-Irish	IDT	ga	idt
+Irish	IDT_XV	ga	idt_xv
 German	GSD	de	gsd
 Catalan	AnCora	ca	ancora
 Hebrew	HTB	he	htb
