@@ -53,13 +53,13 @@ then
 
 
   # Some languages have composite XPOS tags that can be treated like Features
-  XPOSFeatureVocabTreebanks=(Ancient_Greek-Perseus Arabic-PADT Czech-CAC Czech-FicTree Czech-PDT Indonesian-GSD Latin-Perseus_XV)
-  if [[ " ${XPOSFeatureVocabTreebanks[*]} " == "$LANGUAGE-$TREEBANK" ]]
+  XPOSFeatureVocabTreebanks=(Ancient_Greek-Perseus Arabic-PADT Czech-CAC Czech-FicTree Czech-PDT Latin-Perseus_XV)
+  if [[ " ${XPOSFeatureVocabTreebanks[*]} " == *" $LANGUAGE-$TREEBANK "* ]]
   then
     TaggerNetworkFlags="--TaggerNetwork output_vocab_classes=UPOSTokenVocab:XPOSFeatureVocab:UFeatsFeatureVocab --FormSubtokenVocab cased=False"
     ParserNetworkFlags="--ParserNetwork input_vocab_classes=FormMultivocab:UPOSTokenVocab:XPOSFeatureVocab:UFeatsFeatureVocab:LemmaTokenVocab --FormSubtokenVocab cased=False"
   else
-    TaggerNetworkFlags=""
+    TaggerNetworkFlags="--TaggerNetwork share_layer=True"
     ParserNetworkFlags=""
   fi
 
@@ -81,7 +81,7 @@ then
   fi
 
   # Train the tagger and make sure it runs fine
-  python main.py --save_dir saves/$basename1/Tagger train TaggerNetwork --DEFAULT train_conllus=$train_conllus dev_conllus=$dev_conllus LANG=$LANGUAGE TREEBANK=$TREEBANK LC=$LC TB=$TB --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen $TaggerNetworkFlags
+  python main.py --save_dir saves/$basename1/Tagger train TaggerNetwork --DEFAULT train_conllus=$train_conllus dev_conllus=$dev_conllus LANG=$LANGUAGE TREEBANK=$TREEBANK LC=$LC TB=$TB --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen $TaggerNetworkFlags #--SubtokenVocab n_buckets=1
   python main.py --save_dir saves/$basename1/Tagger run $train_conllus $dev_conllus
 
   # Grab the re-tagged files and add the comments/compounds back in
@@ -93,8 +93,8 @@ then
   fi
 
   # Train the Parser and make sure it runs fine
-  python main.py --save_dir saves/$basename1/Parser train ParserNetwork --DEFAULT train_conllus=$tagged_train_conllus dev_conllus=$tagged_dev_conllus LANG=$LANGUAGE TREEBANK=$TREEBANK LC=$LC TB=$TB --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen $ParserNetworkFlags
-  python main.py --save_dir saves/$basename1/Parser run $tagged_train_conllu $tagged_dev_conllus
+  python main.py --save_dir saves/$basename1/Parser train ParserNetwork --DEFAULT train_conllus=$tagged_train_conllus dev_conllus=$tagged_dev_conllus LANG=$LANGUAGE TREEBANK=$TREEBANK LC=$LC TB=$TB --FormPretrainedVocab pretrained_file=$pretrained_file --force --noscreen $ParserNetworkFlags #--SubtokenVocab n_buckets=1
+  python main.py --save_dir saves/$basename1/Parser run $tagged_train_conllus $tagged_dev_conllus
 
   parsed_train_conllus=saves/$basename1/Parser/parsed/$tagged_train_conllus
   parsed_dev_conllus=saves/$basename1/Parser/parsed/$tagged_dev_conllus
