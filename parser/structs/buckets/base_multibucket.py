@@ -78,6 +78,7 @@ class BaseMultibucket(object):
     for idx, max_length in enumerate(max_lengths):
       len2bkt.update(zip(range(prevlen+1, max_length+1), [idx]*(max_length-prevlen)))
       prevlen = max_length
+    print(len2bkt)
     return len2bkt
   
   #=============================================================

@@ -403,10 +403,11 @@ class FeatureVocab(BaseVocab):
     
     with codecs.open(self.vocab_savename, 'w', encoding='utf-8', errors='ignore') as f:
       for feat, counter in six.iteritems(self._counts):
-        f.write(u'[{}]\n'.format(feat))
-        for token, count in self.sorted(counter):
-          f.write(u'{}\t{}\n'.format(token, count))
-        f.write(u'\n')
+        if feat != 'Root':
+          f.write(u'[{}]\n'.format(feat))
+          for token, count in self.sorted(counter):
+            f.write(u'{}\t{}\n'.format(token, count))
+          f.write(u'\n')
     return
   
   #=============================================================
@@ -433,12 +434,14 @@ class FeatureVocab(BaseVocab):
           match = re.match('(.*)\s([0-9]+)', line) # matches 'value count'
           if featmatch:
             feat = featmatch.group(1)
-            self._feats.append(feat)
-            self._counts[feat] = Counter()
+            if feat != 'Root':
+              self._feats.append(feat)
+              self._counts[feat] = Counter()
           elif match:
             token = match.group(1)
             count = int(match.group(2))
-            self._counts[feat][token] = count
+            if feat != 'Root':
+              self._counts[feat][token] = count
     self.index_by_counts(dump=dump)
     self._loaded = True
     return True
@@ -460,12 +463,12 @@ class FeatureVocab(BaseVocab):
         for token in multitoken:
           feat, token = token.split('=')
           key_dict[feat] = token
-        return [self._str2idx[feat].get(key_dict[feat], self.UNK_IDX) if feat in key_dict else self.PAD_IDX for feat in self._feats]
+        return [self._str2idx.get(feat, self._str2idx['Root']).get(key_dict[feat], self.UNK_IDX) if feat in key_dict else self.PAD_IDX for feat in self._feats]
       else:
         return [self._str2idx[str(feat)].get(key, self.UNK_IDX) for feat, key in enumerate(multitoken)]
     elif isinstance(key[0], six.integer_types + (np.int32, np.int64)):
       if self.keyed:
-        multitoken = ['{}={}'.format(feat, self._idx2str[feat].get(key, self.UNK_STR)) for feat, key in zip(self._feats, key) if key != self.PAD_IDX]
+        multitoken = ['{}={}'.format(feat, self._idx2str.get(feat, self._idx2str['Root']).get(key, self.UNK_STR)) for feat, key in zip(self._feats, key) if key != self.PAD_IDX]
       else:
         multitoken = [self._idx2str[str(feat)].get(key, self.UNK_STR) for feat, key in enumerate(key)]
       if np.sum(key) > 0:
@@ -513,10 +516,10 @@ class FeatureVocab(BaseVocab):
       raise ValueError('key to {}.__contains__ must be (string, string or integer) tuple')
   
   def __len__(self):
-    return len(self._str2idx)
+    return len(self._feats)
   
   def __iter__(self):
-    return (vocab for vocab in self._str2idx)
+    return (feat for feat in self._feats)
   
   #=============================================================
   @property

@@ -143,7 +143,7 @@ def train(**kwargs):
     if not force:
       input_str = ''
       while input_str not in ('y', 'n', 'yes', 'no'):
-        input_str = input('Save directory already exists. It will be deleted if you continue. Do you want to proceed? [Y/n] ').lower()
+        input_str = input('{} already exists. It will be deleted if you continue. Do you want to proceed? [Y/n] '.format(save_dir)).lower()
       if input_str in ('n', 'no'):
         print()
         sys.exit(0)
