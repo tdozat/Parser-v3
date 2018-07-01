@@ -332,11 +332,16 @@ class FeatureVocab(BaseVocab):
         else:
           feat = str(i)
         
+        if feat not in self._feat_set:
+          self._feats.append(feat)
+          self._feat_set.add(feat)
         if token != self.PAD_STR:
-          if feat not in self._feat_set:
-            self._feats.append(feat)
-            self._feat_set.add(feat)
           self._counts[feat][token] += 1
+        #if token != self.PAD_STR:
+        #  if feat not in self._feat_set:
+        #    self._feats.append(feat)
+        #    self._feat_set.add(feat)
+        #  self._counts[feat][token] += 1
     return
   
   #=============================================================
@@ -374,9 +379,10 @@ class FeatureVocab(BaseVocab):
   def index_by_counts(self, dump=True):
     """"""
     
-    for feat, counter in six.iteritems(self._counts):
+    for feat in self._feats:
       self[feat, self.PAD_STR] = 0
       cur_idx = 1
+      counter = self._counts[feat]
       for token, count in self.sorted(counter):
         if (not self.min_occur_count or count >= self.min_occur_count) and\
            (not self.max_embed_count or cur_idx < self.max_embed_count+1):
