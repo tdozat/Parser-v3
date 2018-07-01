@@ -327,16 +327,17 @@ class FeatureVocab(BaseVocab):
       multitoken = list(multitoken)
     for i, token in enumerate(multitoken):
       if token != '_':
-        if self.keyed:
-          feat, token = token.split('=')
-        else:
-          feat = str(i)
+        if self.keyed or not self.cliplen or i < self.cliplen:
+          if self.keyed:
+            feat, token = token.split('=')
+          else:
+            feat = str(i)
         
-        if feat not in self._feat_set:
-          self._feats.append(feat)
-          self._feat_set.add(feat)
-        if token != self.PAD_STR:
-          self._counts[feat][token] += 1
+          if feat not in self._feat_set:
+            self._feats.append(feat)
+            self._feat_set.add(feat)
+          if token != self.PAD_STR:
+            self._counts[feat][token] += 1
         #if token != self.PAD_STR:
         #  if feat not in self._feat_set:
         #    self._feats.append(feat)
@@ -393,6 +394,10 @@ class FeatureVocab(BaseVocab):
     self._depth = len(self)
     if self.keyed:
       self._feats.sort()
+    else:
+      self._feats = [int(feat) for feat in self._feats]
+      self._feats.sort()
+      self._feats = [str(feat) for feat in self._feats]
     if dump:
       self.dump()
     return
@@ -465,6 +470,8 @@ class FeatureVocab(BaseVocab):
           key_dict[feat] = token
         return [self._str2idx.get(feat, self._str2idx['Root']).get(key_dict[feat], self.UNK_IDX) if feat in key_dict else self.PAD_IDX for feat in self._feats]
       else:
+        if self.cliplen:
+          multitoken = multitoken[:self.cliplen]
         return [self._str2idx[str(feat)].get(key, self.UNK_IDX) for feat, key in enumerate(multitoken)]
     elif isinstance(key[0], six.integer_types + (np.int32, np.int64)):
       if self.keyed:
@@ -585,6 +592,15 @@ class FeatureVocab(BaseVocab):
   @property
   def cased(self):
     return self._config.getboolean(self, 'cased')
+  # TODO This was added at the eleventh hour and should be fixed
+  @property
+  def cliplen(self):
+    if '_cliplen' in self.__dict__:
+      return self._cliplen
+    elif self._config.has_option(self.classname, 'cliplen'):
+      return self._config.getint(self, 'cliplen')
+    else:
+      return 0
 
 #***************************************************************  
 class LemmaFeatureVocab(FeatureVocab, cv.LemmaVocab):
