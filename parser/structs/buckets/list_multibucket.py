@@ -123,7 +123,7 @@ class ListMultibucket(BaseMultibucket, list):
       if i in unique_bucket_indices:
         bucket_i_indices = np.where(bucket_indices == i)[0]
         bucket_i_sequence_indices = subdata['sequence'][bucket_i_indices]
-        maxlen = np.max(subdata['length'][bucket_i_indices])
+        maxlen = max(1, np.max(subdata['length'][bucket_i_indices]))
         self[i].set_placeholders(bucket_i_sequence_indices, maxlen, feed_dict=feed_dict)
         bucket_sequence_indices.append(bucket_i_indices)
         
