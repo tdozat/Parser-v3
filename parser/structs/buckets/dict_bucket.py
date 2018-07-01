@@ -88,7 +88,6 @@ class DictBucket(BaseBucket):
             data[i, 0:len(sequence)] = sequence
       except ValueError:
         print('Expected shape: {}\nsequence: {}'.format([len(sequence), self.depth], sequence))
-        print(self._tokens[i])
         raise
     elif self.depth == -1:
       # for graphs, sequence should be list of (idx, val) pairs
