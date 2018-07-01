@@ -83,7 +83,7 @@ then
   if [ $LANGUAGE == 'Czech' ]
   then
     XPOSFeatureVocabFlags="--XPOSFeatureVocab cliplen=15"
-  else:
+  else
     XPOSFeatureVocabFlags=""
   fi
 
