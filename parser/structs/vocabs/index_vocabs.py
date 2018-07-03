@@ -78,8 +78,7 @@ class IndexVocab(BaseVocab):
   def get_bilinear_classifier(self, layer, token_weights, variable_scope=None, reuse=False):
     """"""
     
-    recur_layer = layer1 = layer2 = layer
-    lin_layer1 = lin_layer2 = layer
+    recur_layer = layer
     hidden_keep_prob = 1 if reuse else self.hidden_keep_prob
     hidden_func = self.hidden_func
     hidden_size = self.hidden_size
@@ -308,35 +307,98 @@ class GraphIndexVocab(IndexVocab):
   def get_bilinear_discriminator(self, layer, token_weights, variable_scope=None, reuse=False):
     """"""
     
-    layer1 = layer2 = layer
+    recur_layer = layer
     hidden_keep_prob = 1 if reuse else self.hidden_keep_prob
     add_linear = self.add_linear
+    n_splits = 2*(1+linearize+distance)
     with tf.variable_scope(variable_scope or self.field):
-      for i in six.moves.range(0, self.n_layers):
-        with tf.variable_scope('FC1-%d' % i):
-          layer1 = classifiers.hidden(layer1, self.hidden_size,
-                                      hidden_func=self.hidden_func,
-                                      hidden_keep_prob=hidden_keep_prob)
-        with tf.variable_scope('FC2-%d' % i):
-          layer2 = classifiers.hidden(layer2, self.hidden_size,
-                                      hidden_func=self.hidden_func,
-                                      hidden_keep_prob=hidden_keep_prob)
+      for i in six.moves.range(0, self.n_layers-1):
+        with tf.variable_scope('FC-%d' % i):
+          layer = classifiers.hidden(layer, n_splits*self.hidden_size,
+                                     hidden_func=self.hidden_func,
+                                     hidden_keep_prob=hidden_keep_prob)
+      with tf.variable_scope('FC-top' % i):
+        layers = classifiers.hiddens(layer, n_splits*[self.hidden_size],
+                                     hidden_func=self.hidden_func,
+                                     hidden_keep_prob=hidden_keep_prob)
+      layer1, layer2 = layers.pop(0), layers.pop(0)
+      if linearize:
+        lin_layer1, lin_layer2 = layers.pop(0), layers.pop(0)
+      if distance:
+        dist_layer1, dist_layer2 = layers.pop(0), layers.pop(0)
+      
       with tf.variable_scope('Discriminator'):
         if self.diagonal:
-          logits = classifiers.diagonal_full_bilinear_discriminator(
+          logits, _ = classifiers.diagonal_bilinear_discriminator(
             layer1, layer2,
             hidden_keep_prob=hidden_keep_prob,
             add_linear=add_linear)
+          if linearize:
+            with tf.variable_scope('Linearization'):
+              lin_logits = classifiers.diagonal_bilinear_discriminator(
+                lin_layer1, lin_layer2,
+                hidden_keep_prob=hidden_keep_prob,
+                add_linear=add_linear)
+          if distance:
+            with tf.variable_scope('Distance'):
+              dist_lamda = 1+tf.nn.softplus(classifiers.diagonal_bilinear_discriminator(
+                dist_layer1, dist_layer2,
+                hidden_keep_prob=hidden_keep_prob,
+                add_linear=add_linear))
         else:
-          logits = classifiers.full_bilinear_discriminator(
+          logits, _ = classifiers.bilinear_attention(
             layer1, layer2,
             hidden_keep_prob=hidden_keep_prob,
             add_linear=add_linear)
+          if linearize:
+            with tf.variable_scope('Linearization'):
+              lin_logits = classifiers.bilinear_discriminator(
+                lin_layer1, lin_layer2,
+                hidden_keep_prob=hidden_keep_prob,
+                add_linear=add_linear)
+          if distance:
+            with tf.variable_scope('Distance'):
+              dist_lamda = 1+tf.nn.softplus(classifiers.bilinear_discriminator(
+                dist_layer1, dist_layer2,
+                hidden_keep_prob=hidden_keep_prob,
+                add_linear=add_linear))
         
         #-----------------------------------------------------------
         # Process the targets
         # (n x m x m) -> (n x m x m)
         unlabeled_targets = self.placeholder
+        shape = tf.shape(layer1)
+        batch_size, bucket_size = shape[0], shape[1]
+        # (1 x m)
+        ids = tf.expand_dims(tf.range(bucket_size), 0)
+        # (1 x m) -> (1 x 1 x m)
+        head_ids = tf.expand_dims(ids, -2)
+        # (1 x m) -> (1 x m x 1)
+        dep_ids = tf.expand_dims(ids, -1)
+        if self.linearize:
+          # Wherever the head is to the left
+          # (n x m x m), (1 x m x 1) -> (n x m x m)
+          lin_targets = tf.to_float(tf.less(targets, dep_ids))
+          # cross-entropy of the linearization of each i,j pair
+          # (1 x 1 x m), (1 x m x 1) -> (n x m x m)
+          lin_ids = tf.tile(tf.less(head_ids, dep_ids), [batch_size, 1, 1])
+          # (n x 1 x m), (n x m x 1) -> (n x m x m)
+          lin_xent = -tf.nn.softplus(tf.where(lin_ids, -lin_logits, lin_logits))
+          # add the cross-entropy to the logits
+          # (n x m x m), (n x m x m) -> (n x m x m)
+          logits += tf.stop_gradient(lin_xent)
+        if self.distance:
+          # (n x m x m) - (1 x m x 1) -> (n x m x m)
+          dist_targets = tf.abs(targets - dep_ids)
+          # KL-divergence of the distance of each i,j pair
+          # (1 x 1 x m) - (1 x m x 1) -> (n x m x m)
+          dist_ids = tf.to_float(tf.tile(tf.abs(head_ids - dep_ids), [batch_size, 1, 1]))+1e-12
+          # (n x m x m), (n x m x m) -> (n x m x m)
+          #dist_kld = (dist_ids * tf.log(dist_lamda / dist_ids) + dist_ids - dist_lamda)
+          dist_kld = -tf.log((dist_ids - dist_lamda)**2/2 + 1)
+          # add the KL-divergence to the logits
+          # (n x m x m), (n x m x m) -> (n x m x m)
+          logits += tf.stop_gradient(dist_kld)
         
         #-----------------------------------------------------------
         # Compute probabilities/cross entropy
@@ -344,6 +406,13 @@ class GraphIndexVocab(IndexVocab):
         probabilities = tf.nn.sigmoid(logits) * tf.to_float(token_weights)
         # (n x m x m), (n x m x m), (n x m x m) -> ()
         loss = tf.losses.sigmoid_cross_entropy(unlabeled_targets, logits, weights=token_weights)
+        n_tokens = tf.to_float(tf.reduce_sum(token_weights))
+        if self.linearize:
+          lin_target_xent = lin_xent * unlabeled_targets
+          loss -= tf.reduce_sum(lin_target_xent * tf.to_float(token_weights)) / (n_tokens + 1e-12)
+        if self.distance:
+          dist_target_kld = dist_kld * unlabeled_targets
+          loss -= tf.reduce_sum(dist_target_kld * tf.to_float(token_weights)) / (n_tokens + 1e-12)
         
         #-----------------------------------------------------------
         # Compute predictions/accuracy

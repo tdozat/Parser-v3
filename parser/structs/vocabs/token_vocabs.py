@@ -572,19 +572,21 @@ class GraphTokenVocab(TokenVocab):
   def get_bilinear_discriminator(self, layer, token_weights, variable_scope=None, reuse=False):
     """"""
     
-    recur_layer = layer1 = layer2 = layer
+    recur_layer = layer
     hidden_keep_prob = 1 if reuse else self.hidden_keep_prob
     add_linear = self.add_linear
     with tf.variable_scope(variable_scope or self.classname):
-      for i in six.moves.range(0, self.n_layers):
-        with tf.variable_scope('FC1-%d' % i):
-          layer1 = classifiers.hidden(layer1, self.hidden_size,
-                                      hidden_func=self.hidden_func,
-                                      hidden_keep_prob=hidden_keep_prob)
-        with tf.variable_scope('FC2-%d' % i):
-          layer2 = classifiers.hidden(layer2, self.hidden_size,
-                                      hidden_func=self.hidden_func,
-                                      hidden_keep_prob=hidden_keep_prob)
+      for i in six.moves.range(0, self.n_layers-1):
+        with tf.variable_scope('FC-%d' % i):
+          layer = classifiers.hidden(layer, 2*self.hidden_size,
+                                     hidden_func=self.hidden_func,
+                                     hidden_keep_prob=hidden_keep_prob)
+      with tf.variable_scope('FC-top' % i):
+        layers = classifiers.hiddens(layer, 2*[self.hidden_size],
+                                   hidden_func=self.hidden_func,
+                                   hidden_keep_prob=hidden_keep_prob)
+      layer1, layer2 = layers.pop(0), layers.pop(0)
+      
       with tf.variable_scope('Discriminator'):
         if self.diagonal:
           logits = classifiers.diagonal_bilinear_discriminator(
@@ -653,19 +655,21 @@ class GraphTokenVocab(TokenVocab):
   def get_factored_bilinear_classifier(self, layer, outputs, token_weights, variable_scope=None, reuse=False):
     """"""
     
-    recur_layer = layer1 = layer2 = layer
+    recur_layer = layer
     hidden_keep_prob = 1 if reuse else self.hidden_keep_prob
     add_linear = self.add_linear
     with tf.variable_scope(variable_scope or self.field):
       for i in six.moves.range(0, self.n_layers-1):
-        with tf.variable_scope('FC1-%d' % i):
-          layer1 = classifiers.hidden(layer1, self.hidden_size,
+        with tf.variable_scope('FC-%d' % i):
+          layer = classifiers.hidden(layer, 2*self.hidden_size,
                                       hidden_func=self.hidden_func,
                                       hidden_keep_prob=hidden_keep_prob)
-        with tf.variable_scope('FC2-%d' % i):
-          layer2 = classifiers.hidden(layer2, self.hidden_size,
-                                      hidden_func=self.hidden_func,
-                                      hidden_keep_prob=hidden_keep_prob)
+      with tf.variable_scope('FC-top' % i):
+        layers = classifiers.hidden(layer, 2*[self.hidden_size],
+                                    hidden_func=self.hidden_func,
+                                    hidden_keep_prob=hidden_keep_prob)
+      layer1, layer2 = layers.pop(0), layers.pop(0)
+      
       with tf.variable_scope('Classifier'):
         if self.diagonal:
           logits = classifiers.diagonal_bilinear_classifier(
@@ -742,19 +746,21 @@ class GraphTokenVocab(TokenVocab):
   def get_unfactored_bilinear_classifier(self, layer, token_weights, variable_scope=None, reuse=False):
     """"""
     
-    recur_layer = layer1 = layer2 = layer
+    recur_layer = layer
     hidden_keep_prob = 1 if reuse else self.hidden_keep_prob
     add_linear = self.add_linear
     with tf.variable_scope(variable_scope or self.field):
-      for i in six.moves.range(0, self.n_layers):
-        with tf.variable_scope('FC1-%d' % i):
-          layer1 = classifiers.hidden(layer1, self.hidden_size,
-                                      hidden_func=self.hidden_func,
-                                      hidden_keep_prob=hidden_keep_prob)
-        with tf.variable_scope('FC2-%d' % i):
-          layer2 = classifiers.hidden(layer2, self.hidden_size,
-                                      hidden_func=self.hidden_func,
-                                      hidden_keep_prob=hidden_keep_prob)
+      for i in six.moves.range(0, self.n_layers-1):
+        with tf.variable_scope('FC-%d' % i):
+          layer = classifiers.hidden(layer, 2*self.hidden_size,
+                                     hidden_func=self.hidden_func,
+                                     hidden_keep_prob=hidden_keep_prob)
+      with tf.variable_scope('FC-top' % i):
+        layers = classifiers.hidden(layer, 2*[self.hidden_size],
+                                    hidden_func=self.hidden_func,
+                                    hidden_keep_prob=hidden_keep_prob)
+      layer1, layer2 = layers.pop(0), layers.pop(0)
+      
       with tf.variable_scope('Classifier'):
         if self.diagonal:
           logits = classifiers.diagonal_bilinear_classifier(
