@@ -188,7 +188,7 @@ class SubtokenVocab(CountVocab):
     """"""
 
     characters = list(token)
-    character_indices = [self._str2idx.get(character, self.UNK_IDX) for character in characters]
+    character_indices = [self._str2idx.get(character, self.UNK_IDX) for character in characters[:50]]
     token_index = self._multibucket.add(character_indices, characters)
     self._tok2idx[token] = token_index
     self._idx2tok[token_index] = token

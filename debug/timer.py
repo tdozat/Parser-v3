@@ -14,7 +14,7 @@ class Timer(object):
     return self
   
   def __exit__(self, *args):
-    print('{}: {:0.2f}'.format(self.name, time.time() - self.start))
+    print('\u001b[93m{}: {:0.2f}\u001b[0m'.format(self.name, time.time() - self.start))
     return
 
   #=============================================================

@@ -407,7 +407,8 @@ class FeatureVocab(BaseVocab):
     """"""
     
     with codecs.open(self.vocab_savename, 'w', encoding='utf-8', errors='ignore') as f:
-      for feat, counter in six.iteritems(self._counts):
+      for feat in self._feats:
+        counter = self._counts[feat]
         if feat != 'Root':
           f.write(u'[{}]\n'.format(feat))
           for token, count in self.sorted(counter):
