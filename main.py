@@ -60,7 +60,6 @@ def resolve_network_dependencies(config, network_class, network_list, networks):
     return set(networks[_network_class] for _network_class in network_list), networks
 #-------------------------------------------------------------
 
-# TODO split train into "train" and "search"
 # TODO make all DEFAULT options as regular flags
 #***************************************************************
 # Set up the argument parser
@@ -136,7 +135,7 @@ def train(**kwargs):
   if save_metadir is not None:
     kwargs['DEFAULT']['save_metadir'] = save_metadir
   if save_dir is None:
-    save_dir = Config(**kwargs).get('DEFAULT', 'save_dir')
+    save_dir = Config(config_file=config_file, **kwargs).get('DEFAULT', 'save_dir')
   
   # If not loading, ask the user if they want to overwrite the directory
   if not load and os.path.isdir(save_dir):

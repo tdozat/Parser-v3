@@ -220,9 +220,10 @@ class GraphOutputs(object):
         # (n x m x m x c) -> (n x m x m)
         semgraph_preds = np.argmax(semgraph_probs, axis=-1)
       predictions['semrel'] = sparse_semgraph_preds = []
-      for i in xrange(len(semgraph_preds)):
+      predictions['semhead'] = []
+      for i in range(len(semgraph_preds)):
         sparse_semgraph_preds.append([])
-        for j in xrange(len(semgraph_preds[i])):
+        for j in range(len(semgraph_preds[i])):
           sparse_semgraph_preds[-1].append([])
           for k, pred in enumerate(semgraph_preds[i,j]):
             if pred:

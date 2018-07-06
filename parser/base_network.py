@@ -28,6 +28,7 @@ import codecs
 
 import numpy as np
 import tensorflow as tf
+from tensorflow.python.client import timeline
 
 from debug.timer import Timer
 
@@ -168,6 +169,11 @@ class BaseNetwork(object):
       for saver, path in zip(input_network_savers, input_network_paths):
         saver.restore(sess, path)
       sess.run(tf.global_variables_initializer())
+      #---
+      os.makedirs(os.path.join(self.save_dir, 'profile'))
+      options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+      run_metadata = tf.RunMetadata()
+      #---
       if not noscreen:
         #---------------------------------------------------------
         def run(stdscr):
@@ -311,7 +317,16 @@ class BaseNetwork(object):
               train_outputs.restart_timer()
               start_time = time.time()
               feed_dict = trainset.set_placeholders(batch)
-              _, train_scores = sess.run(train_tensors, feed_dict=feed_dict)
+              #---
+              if current_step < 10:
+                _, train_scores = sess.run(train_tensors, feed_dict=feed_dict, options=options, run_metadata=run_metadata)
+                fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+                chrome_trace = fetched_timeline.generate_chrome_trace_format()
+                with open(os.path.join(self.save_dir, 'profile', 'timeline_step_%d.json' % current_step), 'w') as f:
+                  f.write(chrome_trace)
+              else:
+                _, train_scores = sess.run(train_tensors, feed_dict=feed_dict)
+              #---
               train_outputs.update_history(train_scores)
               current_step += 1
               if current_step % self.print_every == 0:
@@ -442,12 +457,13 @@ class BaseNetwork(object):
     graph_outputs.restart_timer()
     for input_filename in dataset.conllu_files:
       for i, indices in enumerate(dataset.batch_iterator(shuffle=False)):
-        tokens, lengths = dataset.get_tokens(indices)
-        feed_dict = dataset.set_placeholders(indices)
-        probabilities = sess.run(probability_tensors, feed_dict=feed_dict)
-        predictions = graph_outputs.probs_to_preds(probabilities, lengths)
-        tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
-        graph_outputs.cache_predictions(tokens, indices)
+        with Timer('batch {}'.format(i)):
+          tokens, lengths = dataset.get_tokens(indices)
+          feed_dict = dataset.set_placeholders(indices)
+          probabilities = sess.run(probability_tensors, feed_dict=feed_dict)
+          predictions = graph_outputs.probs_to_preds(probabilities, lengths)
+          tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
+          graph_outputs.cache_predictions(tokens, indices)
 
       input_dir, input_filename = os.path.split(input_filename)
       if output_dir is None:

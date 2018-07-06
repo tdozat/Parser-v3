@@ -33,7 +33,7 @@ from parser.base_network import BaseNetwork
 from parser.neural import nn, nonlin, embeddings, recurrent, classifiers
 
 #***************************************************************
-class ParserNetwork(BaseNetwork):
+class GraphParserNetwork(BaseNetwork):
   """"""
   
   #=============================================================
@@ -61,7 +61,7 @@ class ParserNetwork(BaseNetwork):
           input_tensors.append(input_network.get_input_tensor(output, reuse=reuse))
       layer = tf.concat(input_tensors, 2)
 
-    n_nonzero = tf.to_float(tf.count_nonzero(layer, axis=-1, keep_dims=True))
+    n_nonzero = tf.to_float(tf.count_nonzero(layer, axis=-1, keepdims=True))
     batch_size, bucket_size, input_size = nn.get_sizes(layer)
     layer *= input_size / (n_nonzero + tf.constant(1e-12))
     
@@ -70,9 +70,13 @@ class ParserNetwork(BaseNetwork):
     n_tokens = tf.reduce_sum(tokens_per_sequence)
     n_sequences = tf.count_nonzero(tokens_per_sequence)
     seq_lengths = tokens_per_sequence+1
+
+    root_weights = token_weights + (1-nn.greater(tf.range(bucket_size), 0))
+    token_weights3D = tf.expand_dims(token_weights, axis=-1) * tf.expand_dims(root_weights, axis=-2)
     tokens = {'n_tokens': n_tokens,
               'tokens_per_sequence': tokens_per_sequence,
               'token_weights': token_weights,
+              'token_weights3D': token_weights,
               'n_sequences': n_sequences}
     
     conv_keep_prob = 1. if reuse else self.conv_keep_prob
@@ -105,24 +109,24 @@ class ParserNetwork(BaseNetwork):
           with tf.variable_scope('Unlabeled'):
             unlabeled_outputs = head_vocab.get_bilinear_discriminator(
               layer,
-              token_weights=token_weights,
+              token_weights=token_weights3D,
               reuse=reuse)
           with tf.variable_scope('Labeled'):
             labeled_outputs = vocab.get_bilinear_classifier(
               layer, unlabeled_outputs,
-              token_weights=token_weights,
+              token_weights=token_weights3D,
               reuse=reuse)
         else:
           labeled_outputs = vocab.get_unfactored_bilinear_classifier(layer, head_vocab.placeholder,
-            token_weights=token_weights,
+            token_weights=token_weights3D,
             reuse=reuse)
-        outputs['semtree'] = labeled_outputs
-        self._evals.add('semtree')
+        outputs['semgraph'] = labeled_outputs
+        self._evals.add('semgraph')
       elif 'semhead' in output_fields:
         vocab = output_fields['semhead']
         outputs[vocab.classname] = vocab.get_bilinear_classifier(
           layer,
-          token_weights=token_weights,
+          token_weights=token_weights3D,
           reuse=reuse)
         self._evals.add('semhead')
     

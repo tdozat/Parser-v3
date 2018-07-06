@@ -652,7 +652,7 @@ class GraphTokenVocab(TokenVocab):
     return outputs
   
   #=============================================================
-  def get_factored_bilinear_classifier(self, layer, outputs, token_weights, variable_scope=None, reuse=False):
+  def get_bilinear_classifier(self, layer, outputs, token_weights, variable_scope=None, reuse=False):
     """"""
     
     recur_layer = layer
@@ -664,8 +664,8 @@ class GraphTokenVocab(TokenVocab):
           layer = classifiers.hidden(layer, 2*self.hidden_size,
                                       hidden_func=self.hidden_func,
                                       hidden_keep_prob=hidden_keep_prob)
-      with tf.variable_scope('FC-top' % i):
-        layers = classifiers.hidden(layer, 2*[self.hidden_size],
+      with tf.variable_scope('FC-top'):
+        layers = classifiers.hiddens(layer, 2*[self.hidden_size],
                                     hidden_func=self.hidden_func,
                                     hidden_keep_prob=hidden_keep_prob)
       layer1, layer2 = layers.pop(0), layers.pop(0)

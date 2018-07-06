@@ -310,21 +310,21 @@ class GraphIndexVocab(IndexVocab):
     recur_layer = layer
     hidden_keep_prob = 1 if reuse else self.hidden_keep_prob
     add_linear = self.add_linear
-    n_splits = 2*(1+linearize+distance)
+    n_splits = 2*(1+self.linearize+self.distance)
     with tf.variable_scope(variable_scope or self.field):
       for i in six.moves.range(0, self.n_layers-1):
         with tf.variable_scope('FC-%d' % i):
           layer = classifiers.hidden(layer, n_splits*self.hidden_size,
                                      hidden_func=self.hidden_func,
                                      hidden_keep_prob=hidden_keep_prob)
-      with tf.variable_scope('FC-top' % i):
+      with tf.variable_scope('FC-top'):
         layers = classifiers.hiddens(layer, n_splits*[self.hidden_size],
                                      hidden_func=self.hidden_func,
                                      hidden_keep_prob=hidden_keep_prob)
       layer1, layer2 = layers.pop(0), layers.pop(0)
-      if linearize:
+      if self.linearize:
         lin_layer1, lin_layer2 = layers.pop(0), layers.pop(0)
-      if distance:
+      if self.distance:
         dist_layer1, dist_layer2 = layers.pop(0), layers.pop(0)
       
       with tf.variable_scope('Discriminator'):
@@ -333,13 +333,13 @@ class GraphIndexVocab(IndexVocab):
             layer1, layer2,
             hidden_keep_prob=hidden_keep_prob,
             add_linear=add_linear)
-          if linearize:
+          if self.linearize:
             with tf.variable_scope('Linearization'):
               lin_logits = classifiers.diagonal_bilinear_discriminator(
                 lin_layer1, lin_layer2,
                 hidden_keep_prob=hidden_keep_prob,
                 add_linear=add_linear)
-          if distance:
+          if self.distance:
             with tf.variable_scope('Distance'):
               dist_lamda = 1+tf.nn.softplus(classifiers.diagonal_bilinear_discriminator(
                 dist_layer1, dist_layer2,
@@ -350,13 +350,13 @@ class GraphIndexVocab(IndexVocab):
             layer1, layer2,
             hidden_keep_prob=hidden_keep_prob,
             add_linear=add_linear)
-          if linearize:
+          if self.linearize:
             with tf.variable_scope('Linearization'):
               lin_logits = classifiers.bilinear_discriminator(
                 lin_layer1, lin_layer2,
                 hidden_keep_prob=hidden_keep_prob,
                 add_linear=add_linear)
-          if distance:
+          if self.distance:
             with tf.variable_scope('Distance'):
               dist_lamda = 1+tf.nn.softplus(classifiers.bilinear_discriminator(
                 dist_layer1, dist_layer2,
@@ -378,7 +378,7 @@ class GraphIndexVocab(IndexVocab):
         if self.linearize:
           # Wherever the head is to the left
           # (n x m x m), (1 x m x 1) -> (n x m x m)
-          lin_targets = tf.to_float(tf.less(targets, dep_ids))
+          lin_targets = tf.to_float(tf.less(unlabeled_targets, dep_ids))
           # cross-entropy of the linearization of each i,j pair
           # (1 x 1 x m), (1 x m x 1) -> (n x m x m)
           lin_ids = tf.tile(tf.less(head_ids, dep_ids), [batch_size, 1, 1])
@@ -389,7 +389,7 @@ class GraphIndexVocab(IndexVocab):
           logits += tf.stop_gradient(lin_xent)
         if self.distance:
           # (n x m x m) - (1 x m x 1) -> (n x m x m)
-          dist_targets = tf.abs(targets - dep_ids)
+          dist_targets = tf.abs(unlabeled_targets - dep_ids)
           # KL-divergence of the distance of each i,j pair
           # (1 x 1 x m) - (1 x m x 1) -> (n x m x m)
           dist_ids = tf.to_float(tf.tile(tf.abs(head_ids - dep_ids), [batch_size, 1, 1]))+1e-12
