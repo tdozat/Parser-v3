@@ -1,4 +1,10 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+import six
+
 import numpy as np
+np.seterr(divide='ignore')
 
 #***************************************************************
 def tarjan(tree):
@@ -52,6 +58,8 @@ def chuliu_edmonds(scores):
   scores *= (1-np.eye(scores.shape[0]))
   scores[0] = 0
   scores[0,0] = 1
+  scores = np.log(scores)
+  
   tree = np.argmax(scores, axis=1)
   cycles = tarjan(tree)
   #print(scores)
@@ -69,7 +77,7 @@ def chuliu_edmonds(scores):
     # scores of cycle in original tree; (c) in R
     cycle_scores = scores[cycle, cycle_subtree]
     # total score of cycle; () in R
-    cycle_score = cycle_scores.prod()
+    cycle_score = cycle_scores.sum()
     
     # locations of noncycle; (t) in [0,1]
     noncycle = np.logical_not(cycle)
@@ -78,7 +86,7 @@ def chuliu_edmonds(scores):
     #print(cycle_locs, noncycle_locs)
     
     # scores of cycle's potential heads; (c x n) - (c) + () -> (n x c) in R
-    metanode_head_scores = scores[cycle][:,noncycle] / cycle_scores[:,None] * cycle_score
+    metanode_head_scores = scores[cycle][:,noncycle] - cycle_scores[:,None] + cycle_score
     # scores of cycle's potential dependents; (n x c) in R
     metanode_dep_scores = scores[noncycle][:,cycle]
     # best noncycle head for each cycle dependent; (n) in c
@@ -144,11 +152,12 @@ def chuliu_edmonds_one_root(scores):
 
   #-------------------------------------------------------------
   def set_root(scores, root):
-    root_score = scores[root,0]
+    root_score = np.log(scores[root,0])
     scores = np.array(scores)
     scores[1:,0] = 0
     scores[root] = 0
     scores[root,0] = 1
+    scores = np.log(scores)
     return scores, root_score
   #-------------------------------------------------------------
 
@@ -157,7 +166,7 @@ def chuliu_edmonds_one_root(scores):
     _scores, root_score = set_root(scores, root)
     _tree = chuliu_edmonds(_scores)
     tree_probs = _scores[np.arange(len(_scores)), _tree]
-    tree_score = np.log(tree_probs).sum()+np.log(root_score) if tree_probs.all() else -np.inf
+    tree_score = tree_probs.sum() + root_score 
     if tree_score > best_score:
       best_score = tree_score
       best_tree = _tree
