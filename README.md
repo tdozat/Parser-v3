@@ -94,7 +94,7 @@ If you want to modify the source code for this directory, here's how it's struct
             * `pretrained_vocabs.py` For managing word2vec or glove embeddings.
             * `multivocabs.py` Used for managing networks that use more than one kind of word representation (token, subtoken, pretrained)
             * `feature_vocabs.py` For Universal Features and some types of composite POS tags.
-        * *buckets* Code for grouping sequences by length.
+        * `buckets/` Code for grouping sequences by length.
             * `dict_multibucket.py` For each vocab, contains a two-column array representing each sentence in the file (in order), where the first column points to a bucket and the second points to an index in the bucket
             * `dict_bucket.py` A bucket that contains all sequences of a certain length range for a given vocab.
             * `list_multibucket.py/list_bucket.py` The bucketing system for character vocabs. Same basic idea but not keyed by vocabulary.
