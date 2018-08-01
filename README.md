@@ -71,7 +71,7 @@ If you have only one file and you want to change the basename, you can use the `
 
 **NB** In the future I might change it so that it always prints to standard out if you don't use any flags, but allow an `--output_dir` flag that saves the files to disk somewhere (in the `save_dir/parsed/` directory if unspecified), printing out the name of the saved file for convenience. Maybe with an `--ignore_subdirs` flag that ignores subdirectory structure when saving. I'll think about it.
 
-### HPO
+### Optimizing
 Proper hyperparameter tuning is key to getting peak performance, and honestly is just good science. Like if you have two models with different architectures, but one of them didn't tune their hyperparameters very well, how can you say which one is actually better? If you want to use an experimental hyperparameter tuning algorithm I've been playing with, there's some support for it in the code (see `main.py` and the `hpo` directory), but at the moment it's fairly ad-hoc. Just promise not to scoop me if you use it.
 
 ## Package structure
