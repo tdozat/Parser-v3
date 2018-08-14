@@ -132,12 +132,14 @@ class CoNLLUDataset(set):
     batches = []
     bucket_indices = self._multibucket.bucket_indices
     for i in np.unique(bucket_indices):
+      bucket_size = self._multibucket.max_lengths[i] 
       subdata = np.where(bucket_indices == i)[0]
       if len(subdata) > 0:
         if shuffle:
           np.random.shuffle(subdata)
-        n_splits = max(subdata.shape[0] * self._multibucket.max_lengths[i] // self.batch_size, 1)
-        batches.extend(np.array_split(subdata, n_splits))
+        n_splits = max(subdata.shape[0] * bucket_size // self.batch_size, 1)
+        splits = np.array_split(subdata, n_splits)
+        batches.extend(splits)
     if shuffle:
       np.random.shuffle(batches)
     return iter(batches)

@@ -123,9 +123,9 @@ def LSTM(layer, recur_size, seq_lengths, conv_width=0, recur_func=nonlin.tanh, c
     gate_weights = tf.get_variable('Gate_Weights', shape=[input_size, gate_size])#, initializer=tf.orthogonal_initializer)
     if highway:
       highway_weights = tf.get_variable('Highway_Weights', shape=[input_size, highway_size])#, initializer=tf.orthogonal_initializer)
-      weights = tf.concat([weights, gate_weights, highway_weights], axis=2)
+      weights = tf.concat([weights, gate_weights, highway_weights], axis=1)
     else:
-      weights = tf.concat([weights, gate_weights], axis=2)
+      weights = tf.concat([weights, gate_weights], axis=1)
     biases = tf.get_variable('Biases', shape=gated_highway_size, initializer=tf.zeros_initializer)
     if conv_keep_prob < 1:
       layer = nn.dropout(layer, conv_keep_prob, noise_shape=[batch_size, 1, input_size])

@@ -329,7 +329,7 @@ class GraphIndexVocab(IndexVocab):
       
       with tf.variable_scope('Discriminator'):
         if self.diagonal:
-          logits, _ = classifiers.diagonal_bilinear_discriminator(
+          logits = classifiers.diagonal_bilinear_discriminator(
             layer1, layer2,
             hidden_keep_prob=hidden_keep_prob,
             add_linear=add_linear)
@@ -346,7 +346,7 @@ class GraphIndexVocab(IndexVocab):
                 hidden_keep_prob=hidden_keep_prob,
                 add_linear=add_linear))
         else:
-          logits, _ = classifiers.bilinear_attention(
+          logits = classifiers.bilinear_discriminator(
             layer1, layer2,
             hidden_keep_prob=hidden_keep_prob,
             add_linear=add_linear)

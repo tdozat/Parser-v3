@@ -166,7 +166,7 @@ def chuliu_edmonds_one_root(scores):
   except:
     with open('debug.log', 'w') as f:
       f.write('{}: {}, {}\n'.format(tree, scores, roots_to_try))
-      f.write('{}: {}, {}\n'.format(_tree, _scores, tree_score))
+      f.write('{}: {}, {}, {}\n'.format(_tree, _scores, tree_probs, tree_score))
     raise
   return best_tree
   

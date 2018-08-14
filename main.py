@@ -134,8 +134,10 @@ def train(**kwargs):
   # Figure out the save_directory
   if save_metadir is not None:
     kwargs['DEFAULT']['save_metadir'] = save_metadir
-  if save_dir is None:
-    save_dir = Config(config_file=config_file, **kwargs).get('DEFAULT', 'save_dir')
+  if save_dir is not None:
+    kwargs['DEFAULT']['save_dir'] = save_dir
+  config = Config(config_file=config_file, **kwargs)
+  save_dir = config.get('DEFAULT', 'save_dir')
   
   # If not loading, ask the user if they want to overwrite the directory
   if not load and os.path.isdir(save_dir):
@@ -146,6 +148,8 @@ def train(**kwargs):
       if input_str in ('n', 'no'):
         print()
         sys.exit(0)
+    elif noscreen:
+      sys.exit(0)
     shutil.rmtree(save_dir)
   
   # If the save_dir wasn't overwritten, load its config_file
@@ -155,8 +159,6 @@ def train(**kwargs):
     os.makedirs(save_dir)
     os.system('git rev-parse HEAD >> {}'.format(os.path.join(save_dir, 'HEAD')))
   
-  kwargs['DEFAULT']['save_dir'] = save_dir
-  config = Config(config_file=config_file, **kwargs)
   network_list = config.get(network_class, 'input_network_classes')
   if not load:
     with open(os.path.join(save_dir, 'config.cfg'), 'w') as f:
@@ -267,6 +269,8 @@ def run(**kwargs):
   kwargs['DEFAULT']['save_dir'] = save_dir
 
   config = Config(defaults_file='', config_file=config_file, **kwargs)
+  with open('debug.cfg', 'w') as f:
+    config.write(f)
   network_class = config.get('DEFAULT', 'network_class')
   network_list = config.get(network_class, 'input_network_classes')
   input_networks, networks = resolve_network_dependencies(config, network_class, network_list, {})

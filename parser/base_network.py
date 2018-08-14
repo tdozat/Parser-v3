@@ -48,64 +48,63 @@ class BaseNetwork(object):
   def __init__(self, input_networks=set(), config=None):
     """"""
 
-    with Timer('Initializing the network (including pretrained vocab)'):
-      self._config = config
-      #os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+    self._config = config
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-      self._input_networks = input_networks
-      input_network_classes = set(input_network.classname for input_network in self._input_networks)
-      assert input_network_classes == set(self.input_network_classes), 'Not all input networks were passed in to {}'.format(self.classname)
+    self._input_networks = input_networks
+    input_network_classes = set(input_network.classname for input_network in self._input_networks)
+    assert input_network_classes == set(self.input_network_classes), 'Not all input networks were passed in to {}'.format(self.classname)
 
-      extant_vocabs = {}
-      for input_network in self.input_networks:
-        for vocab in input_network.vocabs:
-          if vocab.classname in extant_vocabs:
-            assert vocab is extant_vocabs[vocab.classname], "Two input networks have different instances of {}".format(vocab.classname)
-          else:
-            extant_vocabs[vocab.classname] = vocab
+    extant_vocabs = {}
+    for input_network in self.input_networks:
+      for vocab in input_network.vocabs:
+        if vocab.classname in extant_vocabs:
+          assert vocab is extant_vocabs[vocab.classname], "Two input networks have different instances of {}".format(vocab.classname)
+        else:
+          extant_vocabs[vocab.classname] = vocab
 
-      if 'IDIndexVocab' in extant_vocabs:
-        self._id_vocab = extant_vocabs['IDIndexVocab']
+    if 'IDIndexVocab' in extant_vocabs:
+      self._id_vocab = extant_vocabs['IDIndexVocab']
+    else:
+      self._id_vocab = vocabs.IDIndexVocab(config=config)
+      extant_vocabs['IDIndexVocab'] = self._id_vocab
+
+    self._input_vocabs = []
+    for input_vocab_classname in self.input_vocab_classes:
+      if input_vocab_classname in extant_vocabs:
+        self._input_vocabs.append(extant_vocabs[input_vocab_classname])
       else:
-        self._id_vocab = vocabs.IDIndexVocab(config=config)
-        extant_vocabs['IDIndexVocab'] = self._id_vocab
+        VocabClass = getattr(vocabs, input_vocab_classname)
+        vocab = VocabClass(config=config)
+        vocab.load() or vocab.count(self.train_conllus)
+        self._input_vocabs.append(vocab)
+        extant_vocabs[input_vocab_classname] = vocab
 
-      self._input_vocabs = []
-      for input_vocab_classname in self.input_vocab_classes:
-        if input_vocab_classname in extant_vocabs:
-          self._input_vocabs.append(extant_vocabs[input_vocab_classname])
-        else:
-          VocabClass = getattr(vocabs, input_vocab_classname)
-          vocab = VocabClass(config=config)
-          vocab.load() or vocab.count(self.train_conllus)
-          self._input_vocabs.append(vocab)
-          extant_vocabs[input_vocab_classname] = vocab
+    self._output_vocabs = []
+    for output_vocab_classname in self.output_vocab_classes:
+      if output_vocab_classname in extant_vocabs:
+        self._output_vocabs.append(extant_vocabs[output_vocab_classname])
+      else:
+        VocabClass = getattr(vocabs, output_vocab_classname)
+        vocab = VocabClass(config=config)
+        vocab.load() or vocab.count(self.train_conllus)
+        self._output_vocabs.append(vocab)
+        extant_vocabs[output_vocab_classname] = vocab
 
-      self._output_vocabs = []
-      for output_vocab_classname in self.output_vocab_classes:
-        if output_vocab_classname in extant_vocabs:
-          self._output_vocabs.append(extant_vocabs[output_vocab_classname])
-        else:
-          VocabClass = getattr(vocabs, output_vocab_classname)
-          vocab = VocabClass(config=config)
-          vocab.load() or vocab.count(self.train_conllus)
-          self._output_vocabs.append(vocab)
-          extant_vocabs[output_vocab_classname] = vocab
+    self._throughput_vocabs = []
+    for throughput_vocab_classname in self.throughput_vocab_classes:
+      if throughput_vocab_classname in extant_vocabs:
+        self._throughput_vocabs.append(extant_vocabs[throughput_vocab_classname])
+      else:
+        VocabClass = getattr(vocabs, throughput_vocab_classname)
+        vocab = VocabClass(config=config)
+        vocab.load() or vocab.count(self.train_conllus)
+        self._throughput_vocabs.append(vocab)
+        extant_vocabs[throughput_vocab_classname] = vocab
 
-      self._throughput_vocabs = []
-      for throughput_vocab_classname in self.throughput_vocab_classes:
-        if throughput_vocab_classname in extant_vocabs:
-          self._throughput_vocabs.append(extant_vocabs[throughput_vocab_classname])
-        else:
-          VocabClass = getattr(vocabs, throughput_vocab_classname)
-          vocab = VocabClass(config=config)
-          vocab.load() or vocab.count(self.train_conllus)
-          self._throughput_vocabs.append(vocab)
-          extant_vocabs[throughput_vocab_classname] = vocab
-
-      with tf.variable_scope(self.classname, reuse=False):
-        self.global_step = tf.Variable(0., trainable=False, name='Global_step')
-      self._vocabs = set(extant_vocabs.values())
+    with tf.variable_scope(self.classname, reuse=False):
+      self.global_step = tf.Variable(0., trainable=False, name='Global_step')
+    self._vocabs = set(extant_vocabs.values())
     return
 
   #=============================================================
@@ -169,11 +168,11 @@ class BaseNetwork(object):
       for saver, path in zip(input_network_savers, input_network_paths):
         saver.restore(sess, path)
       sess.run(tf.global_variables_initializer())
-      #---
-      os.makedirs(os.path.join(self.save_dir, 'profile'))
-      options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-      run_metadata = tf.RunMetadata()
-      #---
+      ##---
+      #os.makedirs(os.path.join(self.save_dir, 'profile'))
+      #options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+      #run_metadata = tf.RunMetadata()
+      ##---
       if not noscreen:
         #---------------------------------------------------------
         def run(stdscr):
@@ -220,7 +219,7 @@ class BaseNetwork(object):
             while (not self.max_steps or current_step < self.max_steps) and \
                   (not self.max_steps_without_improvement or steps_since_best < self.max_steps_without_improvement) and \
                   (not self.n_passes or current_epoch < len(trainset.conllu_files)*self.n_passes):
-              if steps_since_best >= 1 and self.switch_optimizers:
+              if steps_since_best >= 500 and self.switch_optimizers:
                 train_tensors = amsgrad_train_tensors
                 current_optimizer = 'AMSGrad'
               for batch in trainset.batch_iterator(shuffle=True):
@@ -308,7 +307,7 @@ class BaseNetwork(object):
           while (not self.max_steps or current_step < self.max_steps) and \
                 (not self.max_steps_without_improvement or steps_since_best < self.max_steps_without_improvement) and \
                 (not self.n_passes or current_epoch < len(trainset.conllu_files)*self.n_passes):
-            if steps_since_best >= 1 and self.switch_optimizers and current_optimizer != 'AMSGrad':
+            if steps_since_best >= 500 and self.switch_optimizers and current_optimizer != 'AMSGrad':
               train_tensors = amsgrad_train_tensors
               current_optimizer = 'AMSGrad'
               print('\t', end='')
@@ -317,16 +316,17 @@ class BaseNetwork(object):
               train_outputs.restart_timer()
               start_time = time.time()
               feed_dict = trainset.set_placeholders(batch)
-              #---
-              if current_step < 10:
-                _, train_scores = sess.run(train_tensors, feed_dict=feed_dict, options=options, run_metadata=run_metadata)
-                fetched_timeline = timeline.Timeline(run_metadata.step_stats)
-                chrome_trace = fetched_timeline.generate_chrome_trace_format()
-                with open(os.path.join(self.save_dir, 'profile', 'timeline_step_%d.json' % current_step), 'w') as f:
-                  f.write(chrome_trace)
-              else:
-                _, train_scores = sess.run(train_tensors, feed_dict=feed_dict)
-              #---
+              ##---
+              #if current_step < 10:
+              #  _, train_scores = sess.run(train_tensors, feed_dict=feed_dict, options=options, run_metadata=run_metadata)
+              #  fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+              #  chrome_trace = fetched_timeline.generate_chrome_trace_format()
+              #  with open(os.path.join(self.save_dir, 'profile', 'timeline_step_%d.json' % current_step), 'w') as f:
+              #    f.write(chrome_trace)
+              #else:
+              #  _, train_scores = sess.run(train_tensors, feed_dict=feed_dict)
+              _, train_scores = sess.run(train_tensors, feed_dict=feed_dict)
+              ##---
               train_outputs.update_history(train_scores)
               current_step += 1
               if current_step % self.print_every == 0:
@@ -374,9 +374,8 @@ class BaseNetwork(object):
   def parse(self, conllu_files, output_dir=None, output_filename=None):
     """"""
 
-    with Timer('Building dataset'):
-      parseset = conllu_dataset.CoNLLUDataset(conllu_files, self.vocabs,
-                                              config=self._config)
+    parseset = conllu_dataset.CoNLLUDataset(conllu_files, self.vocabs,
+                                            config=self._config)
 
     if output_filename:
       assert len(conllu_files) == 1, "output_filename can only be specified for one input file"
@@ -387,31 +386,25 @@ class BaseNetwork(object):
         factored_deptree = vocab.factorized
       elif vocab.field == 'semrel':
         factored_semgraph = vocab.factorized
-    with Timer('Building TF'):
-      with tf.variable_scope(self.classname, reuse=False):
-        parse_graph = self.build_graph(reuse=True)
-        parse_outputs = DevOutputs(*parse_graph, load=False, factored_deptree=factored_deptree, factored_semgraph=factored_semgraph, config=self._config)
-      parse_tensors = parse_outputs.accuracies
-      all_variables = set(tf.global_variables())
-      non_save_variables = set(tf.get_collection('non_save_variables'))
-      save_variables = all_variables - non_save_variables
-      saver = tf.train.Saver(list(save_variables), max_to_keep=1)
+    with tf.variable_scope(self.classname, reuse=False):
+      parse_graph = self.build_graph(reuse=True)
+      parse_outputs = DevOutputs(*parse_graph, load=False, factored_deptree=factored_deptree, factored_semgraph=factored_semgraph, config=self._config)
+    parse_tensors = parse_outputs.accuracies
+    all_variables = set(tf.global_variables())
+    non_save_variables = set(tf.get_collection('non_save_variables'))
+    save_variables = all_variables - non_save_variables
+    saver = tf.train.Saver(list(save_variables), max_to_keep=1)
 
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     config.allow_soft_placement = True
     with tf.Session(config=config) as sess:
-      with Timer('Initializing non_save variables'):
-        print(list(non_save_variables))
-        sess.run(tf.variables_initializer(list(non_save_variables)))
-      with Timer('Restoring save variables'):
-        saver.restore(sess, tf.train.latest_checkpoint(self.save_dir))
+      sess.run(tf.variables_initializer(list(non_save_variables)))
+      saver.restore(sess, tf.train.latest_checkpoint(self.save_dir))
       if len(conllu_files) == 1 or output_filename is not None:
-        with Timer('Parsing file'):
-          self.parse_file(parseset, parse_outputs, sess, output_dir=output_dir, output_filename=output_filename)
+        self.parse_file(parseset, parse_outputs, sess, output_dir=output_dir, output_filename=output_filename)
       else:
-        with Timer('Parsing files'):
-          self.parse_files(parseset, parse_outputs, sess, output_dir=output_dir)
+        self.parse_files(parseset, parse_outputs, sess, output_dir=output_dir)
     return
 
   #=============================================================
@@ -422,29 +415,27 @@ class BaseNetwork(object):
     input_filename = dataset.conllu_files[0]
     graph_outputs.restart_timer()
     for i, indices in enumerate(dataset.batch_iterator(shuffle=False)):
-      with Timer('Parsing batch %d' % i):
-        tokens, lengths = dataset.get_tokens(indices)
-        feed_dict = dataset.set_placeholders(indices)
-        probabilities = sess.run(probability_tensors, feed_dict=feed_dict)
-        predictions = graph_outputs.probs_to_preds(probabilities, lengths)
-        tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
-        graph_outputs.cache_predictions(tokens, indices)
+      tokens, lengths = dataset.get_tokens(indices)
+      feed_dict = dataset.set_placeholders(indices)
+      probabilities = sess.run(probability_tensors, feed_dict=feed_dict)
+      predictions = graph_outputs.probs_to_preds(probabilities, lengths)
+      tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
+      graph_outputs.cache_predictions(tokens, indices)
 
-    with Timer('Dumping predictions'):
-      if output_dir is None and output_filename is None:
-        graph_outputs.print_current_predictions()
-      else:
-        input_dir, input_filename = os.path.split(input_filename)
-        if output_dir is None:
-          output_dir = os.path.join(self.save_dir, 'parsed', input_dir)
-        elif output_filename is None:
-          output_filename = input_filename
-        
-        if not os.path.exists(output_dir):
-          os.makedirs(output_dir)
-        output_filename = os.path.join(output_dir, output_filename)
-        with codecs.open(output_filename, 'w', encoding='utf-8') as f:
-          graph_outputs.dump_current_predictions(f)
+    if output_dir is None and output_filename is None:
+      graph_outputs.print_current_predictions()
+    else:
+      input_dir, input_filename = os.path.split(input_filename)
+      if output_dir is None:
+        output_dir = os.path.join(self.save_dir, 'parsed', input_dir)
+      elif output_filename is None:
+        output_filename = input_filename
+      
+      if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+      output_filename = os.path.join(output_dir, output_filename)
+      with codecs.open(output_filename, 'w', encoding='utf-8') as f:
+        graph_outputs.dump_current_predictions(f)
     if print_time:
       print('\033[92mParsing 1 file took {:0.1f} seconds\033[0m'.format(time.time() - graph_outputs.time))
     return
@@ -457,13 +448,12 @@ class BaseNetwork(object):
     graph_outputs.restart_timer()
     for input_filename in dataset.conllu_files:
       for i, indices in enumerate(dataset.batch_iterator(shuffle=False)):
-        with Timer('batch {}'.format(i)):
-          tokens, lengths = dataset.get_tokens(indices)
-          feed_dict = dataset.set_placeholders(indices)
-          probabilities = sess.run(probability_tensors, feed_dict=feed_dict)
-          predictions = graph_outputs.probs_to_preds(probabilities, lengths)
-          tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
-          graph_outputs.cache_predictions(tokens, indices)
+        tokens, lengths = dataset.get_tokens(indices)
+        feed_dict = dataset.set_placeholders(indices)
+        probabilities = sess.run(probability_tensors, feed_dict=feed_dict)
+        predictions = graph_outputs.probs_to_preds(probabilities, lengths)
+        tokens.update({vocab.field: vocab[predictions[vocab.field]] for vocab in self.output_vocabs})
+        graph_outputs.cache_predictions(tokens, indices)
 
       input_dir, input_filename = os.path.split(input_filename)
       if output_dir is None:

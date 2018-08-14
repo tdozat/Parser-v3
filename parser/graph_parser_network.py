@@ -104,8 +104,8 @@ class GraphParserNetwork(BaseNetwork):
     with tf.variable_scope('Classifiers'):
       if 'semrel' in output_fields:
         vocab = output_fields['semrel']
+        head_vocab = output_fields['semhead']
         if vocab.factorized:
-          head_vocab = output_fields['semhead']
           with tf.variable_scope('Unlabeled'):
             unlabeled_outputs = head_vocab.get_bilinear_discriminator(
               layer,

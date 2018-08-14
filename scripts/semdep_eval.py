@@ -26,7 +26,7 @@ import sys
 import numpy as np
 
 #===============================================================
-def compute_F1(gold_file, sys_file, labeled=False):
+def compute_F1(gold_files, sys_files, labeled=False):
   """"""
   
   correct = 0
@@ -39,63 +39,64 @@ def compute_F1(gold_file, sys_file, labeled=False):
   current_fp = 0
   current_sent = 0
   
-  with codecs.open(gold_file, encoding='utf-8') as gf,\
-       codecs.open(sys_file, encoding='utf-8') as sf:
-    gold_line = gf.readline()
-    gold_i = 1
-    sys_i = 0
-    while gold_line:
-      while gold_line.startswith('#'):
-        current_sent += 1
-        gold_i += 1
-        n_sequences += 1
-        n_correct_sequences += current_seq_correct
-        current_seq_correct = True
-        gold_line = gf.readline()
-      if gold_line.rstrip() != '': 
-        sys_line = sf.readline()
-        sys_i += 1
-        while sys_line.rstrip() == '' or sys_line.split('\t')[0] == '0':
+  for gold_file, sys_file in zip(gold_files, sys_files):
+    with codecs.open(gold_file, encoding='utf-8') as gf,\
+         codecs.open(sys_file, encoding='utf-8') as sf:
+      gold_line = gf.readline()
+      gold_i = 1
+      sys_i = 0
+      while gold_line:
+        while gold_line.startswith('#'):
+          current_sent += 1
+          gold_i += 1
+          n_sequences += 1
+          n_correct_sequences += current_seq_correct
+          current_seq_correct = True
+          gold_line = gf.readline()
+        if gold_line.rstrip() != '': 
           sys_line = sf.readline()
           sys_i += 1
-        
-        gold_line = gold_line.rstrip().split('\t')
-        sys_line = sys_line.rstrip().split('\t')
-        assert sys_line[1] == gold_line[1], 'Files are misaligned at lines {}, {}'.format(gold_i, sys_i)
-        
-        # Compute the gold edges
-        gold_node = gold_line[8]
-        if gold_node != '_':
-          gold_node = gold_node.split('|')
-          if labeled:
-            gold_edges = set(tuple(gold_edge.split(':', 1)) for gold_edge in gold_node)
+          while sys_line.startswith('#') or sys_line.rstrip() == '' or sys_line.split('\t')[0] == '0':
+            sys_line = sf.readline()
+            sys_i += 1
+          
+          gold_line = gold_line.rstrip().split('\t')
+          sys_line = sys_line.rstrip().split('\t')
+          assert sys_line[1] == gold_line[1], 'Files are misaligned at lines {}, {}'.format(gold_i, sys_i)
+          
+          # Compute the gold edges
+          gold_node = gold_line[8]
+          if gold_node != '_':
+            gold_node = gold_node.split('|')
+            if labeled:
+              gold_edges = set(tuple(gold_edge.split(':', 1)) for gold_edge in gold_node)
+            else:
+              gold_edges = set(gold_edge.split(':', 1)[0] for gold_edge in gold_node)
           else:
-            gold_edges = set(gold_edge.split(':', 1)[0] for gold_edge in gold_node)
-        else:
-          gold_edges = set()
-        
-        # Compute the sys edges
-        sys_node = sys_line[8]
-        if sys_node != '_':
-          sys_node = sys_node.split('|')
-          if labeled:
-            sys_edges = set(tuple(sys_edge.split(':', 1)) for sys_edge in sys_node)
+            gold_edges = set()
+          
+          # Compute the sys edges
+          sys_node = sys_line[8]
+          if sys_node != '_':
+            sys_node = sys_node.split('|')
+            if labeled:
+              sys_edges = set(tuple(sys_edge.split(':', 1)) for sys_edge in sys_node)
+            else:
+              sys_edges = set(sys_edge.split(':', 1)[0] for sys_edge in sys_node)
           else:
-            sys_edges = set(sys_edge.split(':', 1)[0] for sys_edge in sys_node)
-        else:
-          sys_edges = set()
-        
-        correct_edges = gold_edges & sys_edges
-        if len(correct_edges) != len(gold_edges):
-          current_seq_correct = False
-        correct += len(correct_edges)
-        predicted += len(sys_edges)
-        actual += len(gold_edges)
-        n_tokens += 1
-        
-        #current_fp += len(sys_edges) - len(gold_edges & sys_edges)
-      gold_line = gf.readline()
-      gold_i += 1
+            sys_edges = set()
+          
+          correct_edges = gold_edges & sys_edges
+          if len(correct_edges) != len(gold_edges):
+            current_seq_correct = False
+          correct += len(correct_edges)
+          predicted += len(sys_edges)
+          actual += len(gold_edges)
+          n_tokens += 1
+          
+          #current_fp += len(sys_edges) - len(gold_edges & sys_edges)
+        gold_line = gf.readline()
+        gold_i += 1
   #print(correct, predicted - correct, actual - correct)
   Accuracy = namedtuple('Accuracy', ['precision', 'recall', 'F1', 'seq_acc'])
   precision = correct / (predicted + 1e-12)
@@ -108,11 +109,14 @@ def compute_F1(gold_file, sys_file, labeled=False):
 def main():
   """"""
   
-  gold_file, sys_file = sys.argv[1:]
-  UAS = compute_F1(gold_file, sys_file, labeled=False)
-  LAS = compute_F1(gold_file, sys_file, labeled=True)
-  print(UAS.F1, UAS.seq_acc)
-  print(LAS.F1, LAS.seq_acc)
+  files = sys.argv[1:]
+  n_files = len(files)
+  assert (n_files % 2) == 0
+  gold_files, sys_files = files[:n_files//2], files[n_files//2:]
+  UAS = compute_F1(gold_files, sys_files, labeled=False)
+  LAS = compute_F1(gold_files, sys_files, labeled=True)
+  #print(UAS.F1, UAS.seq_acc)
+  print('{:0.1f}'.format(LAS.F1*100))
 
 if __name__ == '__main__':
   main()
