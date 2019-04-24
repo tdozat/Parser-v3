@@ -1,7 +1,7 @@
 # Parser-v3
 Stanford CoNLL 2018 Graph-based Dependency Parser
 
-This repo contains the code used for the semantic dependency parser in Dozat & Manning (2018), [Simpler but More Accurate Semantic Dependency Parsing](https://arxiv.org/abs/1807.01396) and for the tagger and parser in Qi, Dozat, Zhang and Manning (2018), [Universal Dependency Parsing from Scratch]().
+This repo contains the code used for the semantic dependency parser in Dozat & Manning (2018), [Simpler but More Accurate Semantic Dependency Parsing](https://arxiv.org/abs/1807.01396) and for the tagger and parser in Qi, Dozat, Zhang and Manning (2018), [Universal Dependency Parsing from Scratch](https://nlp.stanford.edu/pubs/qi2018universal.pdf).
 
 ## Why version 3?
 In Parser-v2, I made a few coding choices early on that made some things simple and elegant but made other things really hard to extend. The principle example of this is that the information in each conllu file is more or less stored as a single numpy array. This is fine when each vocabulary type has a fixed number of columns--for example, the word multivocab has three columns, one for storing the pretrained embedding indices, one for the token embedding indices, and one for the subtoken embedding indices (which pointed to a row in another array). Since it was designed for dependency trees, where each token has exactly one head, head information could be stored in one column of the conllu array. In semantic dependency frameworks and enhanced UD, words can have multiple (or no) heads, so the head information can no longer be stored in a single column. Pointing the head to a separate array (like the subtoken index) would mean treating that column separately for the syntactic and semantic representations, which is getting into needlessly hacky territory. The single-array setup is deeply integrated into the code, and I wasn't really happy with the directory structure or how the subtoken models were accessed, so I decided it would be best to start over. This version has a more modular data representation that makes it easy to extend the code to represent more complex annotations like universal features (UFeats) and graph-structured dependencies. I think the directory structure is a bit clearer and a few of the messy files are easier to understand (although one or two are still pretty opaque...). It's not quite production-ready, but if you want to use it for your own research, hopefully this version will be easier to play with!
@@ -11,7 +11,7 @@ I'll also try to be more responsive to git issues this time around...
 ## Dependencies
 It runs on Python3 and needs TensorFlow version 1.4 (which uses CUDA 8) or TensorFlow version 1.5--current (which use CUDA 9), although the later TF versions will throw some warnings about deprecated function arguments.
 
-Currently it's in TensorFlow, but my collaborators for the CoNLL18 shared task wrote all their code in PyTorch. When deciding how we were going to consolidate our codebases I was outvoted 2-to-1, so if you want a PyTorch version, one is hopefully on the way!
+Currently it's in TensorFlow, but my collaborators for the CoNLL18 shared task wrote all their code in PyTorch. When deciding how we were going to consolidate our codebases I was outvoted 2-to-1, so if you want a PyTorch version, one is hopefully on the way! (update: the PyTorch version, `stanfordnlp`, can be found [here](https://github.com/stanfordnlp/stanfordnlp/))
 
 ## How to use
 ### Training
