@@ -102,6 +102,10 @@ class Multivocab(BaseVocab, list):
       status = (vocab._loaded or vocab.count(train_conllus) if hasattr(vocab, 'count') else True) and status
     return status
   
+  def reset(self):
+    for vocab in self:
+      vocab.reset()
+    return
   #=============================================================
   def get_input_tensor(self, reuse=True):
     """"""

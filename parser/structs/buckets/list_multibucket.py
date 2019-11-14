@@ -56,6 +56,8 @@ class ListMultibucket(BaseMultibucket, list):
     self._indices = [[]]
     self._tokens = [[]]
     self._str2idx = {'': 0}
+    for bucket in self:
+      bucket.reset()
     return
   
   #=============================================================
