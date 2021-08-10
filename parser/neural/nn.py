@@ -60,7 +60,7 @@ def dropout(inputs, keep_prob, noise_shape=None):
   
   if isinstance(noise_shape, (tuple, list)):
     noise_shape = tf.stack(noise_shape)
-  return tf.nn.dropout(inputs, keep_prob=keep_prob, noise_shape=noise_shape)
+  return tf.nn.dropout(inputs, rate=1 - keep_prob, noise_shape=noise_shape)
 
 #===============================================================
 def unscaled_dropout(inputs, keep_prob, noise_shape=None):
@@ -68,7 +68,7 @@ def unscaled_dropout(inputs, keep_prob, noise_shape=None):
   
   if isinstance(noise_shape, (tuple, list)):
     noise_shape = tf.stack(noise_shape)
-  return tf.nn.dropout(inputs, keep_prob=keep_prob, noise_shape=noise_shape)*keep_prob
+  return tf.nn.dropout(inputs, rate=1 - keep_prob, noise_shape=noise_shape)*keep_prob
 
 #===============================================================
 def drop_mask(shape, keep_prob):

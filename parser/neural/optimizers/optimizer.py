@@ -21,7 +21,8 @@ from __future__ import print_function
 import six
 
 import re
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
 #***************************************************************
 class Optimizer(object):

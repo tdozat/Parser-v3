@@ -21,7 +21,8 @@ from __future__ import print_function
 import six
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
 from .base_vocabs import BaseVocab 
 from . import conllu_vocabs as cv

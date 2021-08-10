@@ -27,7 +27,8 @@ from collections import Counter
 from collections import defaultdict as DefaultDict
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
 import parser.neural.nn
 # id_vocab.root = 0

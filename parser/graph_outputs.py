@@ -30,7 +30,8 @@ import curses
 import time
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
 from parser.neural import nn
 from scripts.chuliu_edmonds import chuliu_edmonds_one_root
