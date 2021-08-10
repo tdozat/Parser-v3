@@ -25,7 +25,8 @@ import codecs
 from collections import Counter
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
 from parser.structs.vocabs.base_vocabs import CountVocab
 from . import conllu_vocabs as cv

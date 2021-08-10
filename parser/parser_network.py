@@ -27,7 +27,8 @@ import curses
 import codecs
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
 from parser.base_network import BaseNetwork
 from parser.neural import nn, nonlin, embeddings, recurrent, classifiers
